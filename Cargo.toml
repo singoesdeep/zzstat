@@ -3,6 +3,11 @@ name = "zzstat"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "A deterministic, hardcode-free stat calculation engine designed for MMORPGs"
+repository = "https://github.com/singoesdeep/zzstat"
+authors = ["singoesdeep"]
+keywords = ["game", "mmorpg", "stats", "calculation", "deterministic", "dependency-graph"]
+categories = ["game-development", "algorithms"]
 
 [dependencies]
 petgraph = "0.6"
