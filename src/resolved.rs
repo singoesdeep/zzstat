@@ -31,16 +31,16 @@ use serde::{Deserialize, Serialize};
 pub struct ResolvedStat {
     /// The stat identifier.
     pub stat_id: StatId,
-    
+
     /// The final resolved value.
     pub value: f64,
-    
+
     /// Breakdown of all contributing sources.
     ///
     /// Each entry is `(source_description, value)`.
     /// Sources are listed in the order they were registered.
     pub sources: Vec<(String, f64)>,
-    
+
     /// Breakdown of all applied transforms.
     ///
     /// Each entry is `(transform_description, value_after_transform)`.
@@ -139,9 +139,8 @@ mod tests {
         stat.add_source("Base", 50.0);
         stat.add_source("Item", 25.0);
         stat.add_transform("Multiplier 1.5x", 75.0);
-        
+
         assert_eq!(stat.sources.len(), 2);
         assert_eq!(stat.transforms.len(), 1);
     }
 }
-

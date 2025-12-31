@@ -122,4 +122,3 @@ mod tests {
         assert!(atk < hp); // "ATK" < "HP" lexicographically
     }
 }
-

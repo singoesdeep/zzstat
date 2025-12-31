@@ -157,7 +157,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3280a1b827474fcd5dbef4b35a674deb52ba5c312363aef9135317df179d81b"
 
 [[package]]
-name = "zzrpg"
+name = "zzstat"
 version = "0.1.0"
 dependencies = [
  "petgraph",

@@ -159,7 +159,7 @@ mod tests {
         let source = ConstantSource(100.0);
         let context = StatContext::new();
         let stat_id = StatId::from_str("HP");
-        
+
         assert_eq!(source.get_value(&stat_id, &context), 100.0);
     }
 
@@ -168,14 +168,16 @@ mod tests {
         let mut source = MapSource::empty();
         let hp_id = StatId::from_str("HP");
         let atk_id = StatId::from_str("ATK");
-        
+
         source.insert(hp_id.clone(), 100.0);
         source.insert(atk_id.clone(), 50.0);
-        
+
         let context = StatContext::new();
         assert_eq!(source.get_value(&hp_id, &context), 100.0);
         assert_eq!(source.get_value(&atk_id, &context), 50.0);
-        assert_eq!(source.get_value(&StatId::from_str("MISSING"), &context), 0.0);
+        assert_eq!(
+            source.get_value(&StatId::from_str("MISSING"), &context),
+            0.0
+        );
     }
 }
-

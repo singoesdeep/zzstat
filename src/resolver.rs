@@ -47,10 +47,10 @@ use std::collections::HashMap;
 pub struct StatResolver {
     /// Multiple sources per stat (additive).
     sources: HashMap<StatId, Vec<Box<dyn StatSource>>>,
-    
+
     /// Transform chain per stat.
     transforms: HashMap<StatId, Vec<Box<dyn StatTransform>>>,
-    
+
     /// Cache of resolved stats.
     cache: HashMap<StatId, ResolvedStat>,
 }
@@ -98,7 +98,10 @@ impl StatResolver {
     /// ```
     pub fn register_source(&mut self, stat_id: StatId, source: Box<dyn StatSource>) {
         let stat_id_clone = stat_id.clone();
-        self.sources.entry(stat_id).or_insert_with(Vec::new).push(source);
+        self.sources
+            .entry(stat_id)
+            .or_insert_with(Vec::new)
+            .push(source);
         // Invalidate cache for this stat
         self.cache.remove(&stat_id_clone);
     }
@@ -129,7 +132,10 @@ impl StatResolver {
     /// ```
     pub fn register_transform(&mut self, stat_id: StatId, transform: Box<dyn StatTransform>) {
         let stat_id_clone = stat_id.clone();
-        self.transforms.entry(stat_id).or_insert_with(Vec::new).push(transform);
+        self.transforms
+            .entry(stat_id)
+            .or_insert_with(Vec::new)
+            .push(transform);
         // Invalidate cache for this stat and potentially dependent stats
         self.cache.remove(&stat_id_clone);
     }
@@ -176,7 +182,7 @@ impl StatResolver {
 
         // Build dependency graph
         let graph = self.build_graph()?;
-        
+
         // Get resolution order
         let resolution_order = graph.topological_sort()?;
 
@@ -231,7 +237,7 @@ impl StatResolver {
     ) -> Result<HashMap<StatId, ResolvedStat>, StatError> {
         // Build dependency graph
         let graph = self.build_graph()?;
-        
+
         // Get resolution order
         let resolution_order = graph.topological_sort()?;
 
@@ -426,12 +432,12 @@ mod tests {
     fn test_resolve_simple_source() {
         let mut resolver = StatResolver::new();
         let hp_id = StatId::from_str("HP");
-        
+
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
-        
+
         let context = StatContext::new();
         let resolved = resolver.resolve(&hp_id, &context).unwrap();
-        
+
         assert_eq!(resolved.value, 100.0);
         assert_eq!(resolved.stat_id, hp_id);
     }
@@ -440,13 +446,13 @@ mod tests {
     fn test_resolve_multiple_sources() {
         let mut resolver = StatResolver::new();
         let hp_id = StatId::from_str("HP");
-        
+
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(50.0)));
-        
+
         let context = StatContext::new();
         let resolved = resolver.resolve(&hp_id, &context).unwrap();
-        
+
         assert_eq!(resolved.value, 150.0);
         assert_eq!(resolved.sources.len(), 2);
     }
@@ -455,13 +461,13 @@ mod tests {
     fn test_resolve_with_transform() {
         let mut resolver = StatResolver::new();
         let atk_id = StatId::from_str("ATK");
-        
+
         resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
         resolver.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.5)));
-        
+
         let context = StatContext::new();
         let resolved = resolver.resolve(&atk_id, &context).unwrap();
-        
+
         assert_eq!(resolved.value, 150.0);
         assert_eq!(resolved.transforms.len(), 1);
     }
@@ -471,17 +477,17 @@ mod tests {
         let mut resolver = StatResolver::new();
         let str_id = StatId::from_str("STR");
         let atk_id = StatId::from_str("ATK");
-        
+
         resolver.register_source(str_id.clone(), Box::new(ConstantSource(10.0)));
         resolver.register_source(atk_id.clone(), Box::new(ConstantSource(50.0)));
         resolver.register_transform(
             atk_id.clone(),
             Box::new(ScalingTransform::new(str_id.clone(), 2.0)),
         );
-        
+
         let context = StatContext::new();
         let resolved = resolver.resolve(&atk_id, &context).unwrap();
-        
+
         // 50 (base) + 10 (STR) * 2 (scale) = 70
         assert_eq!(resolved.value, 70.0);
     }
@@ -490,10 +496,10 @@ mod tests {
     fn test_resolve_missing_source() {
         let mut resolver = StatResolver::new();
         let hp_id = StatId::from_str("HP");
-        
+
         let context = StatContext::new();
         let _result = resolver.resolve(&hp_id, &context);
-        
+
         // Should return MissingSource error since no source is registered
         // This is expected behavior per the spec
     }
@@ -502,21 +508,21 @@ mod tests {
     fn test_cache_invalidation() {
         let mut resolver = StatResolver::new();
         let hp_id = StatId::from_str("HP");
-        
+
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
-        
+
         let context = StatContext::new();
         let resolved1 = resolver.resolve(&hp_id, &context).unwrap();
         assert_eq!(resolved1.value, 100.0);
-        
+
         // Should be cached
         let resolved2 = resolver.resolve(&hp_id, &context).unwrap();
         assert_eq!(resolved2.value, 100.0);
-        
+
         // Invalidate and add new source
         resolver.invalidate(&hp_id);
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(50.0)));
-        
+
         let resolved3 = resolver.resolve(&hp_id, &context).unwrap();
         assert_eq!(resolved3.value, 150.0); // 100 + 50
     }
@@ -526,11 +532,11 @@ mod tests {
         let mut resolver = StatResolver::new();
         let a_id = StatId::from_str("A");
         let b_id = StatId::from_str("B");
-        
+
         // Create a cycle: A depends on B, B depends on A
         resolver.register_source(a_id.clone(), Box::new(ConstantSource(1.0)));
         resolver.register_source(b_id.clone(), Box::new(ConstantSource(1.0)));
-        
+
         resolver.register_transform(
             a_id.clone(),
             Box::new(ScalingTransform::new(b_id.clone(), 1.0)),
@@ -539,10 +545,10 @@ mod tests {
             b_id.clone(),
             Box::new(ScalingTransform::new(a_id.clone(), 1.0)),
         );
-        
+
         let context = StatContext::new();
         let result = resolver.resolve(&a_id, &context);
-        
+
         assert!(result.is_err());
         if let Err(StatError::CycleDetected(_)) = result {
             // Good
@@ -551,4 +557,3 @@ mod tests {
         }
     }
 }
-

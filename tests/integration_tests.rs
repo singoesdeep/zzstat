@@ -1,12 +1,12 @@
-use zzstat::*;
 use zzstat::source::ConstantSource;
 use zzstat::transform::{ClampTransform, MultiplicativeTransform, ScalingTransform};
+use zzstat::*;
 
 /// Test a complete stat resolution pipeline with dependencies.
 #[test]
 fn test_complete_pipeline() {
     let mut resolver = StatResolver::new();
-    
+
     // Define stats
     let str_id = StatId::from_str("STR");
     let dex_id = StatId::from_str("DEX");
@@ -94,7 +94,7 @@ fn test_transform_chain() {
     let atk_id = StatId::from_str("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
-    
+
     // Apply multiple transforms in sequence
     resolver.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.5)));
     resolver.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.2)));
@@ -138,7 +138,7 @@ fn test_cache_behavior() {
 #[test]
 fn test_complex_dependency_chain() {
     let mut resolver = StatResolver::new();
-    
+
     let base_id = StatId::from_str("BASE");
     let mid_id = StatId::from_str("MID");
     let top_id = StatId::from_str("TOP");
@@ -188,9 +188,8 @@ fn test_breakdown_information() {
     // Check breakdown
     assert_eq!(resolved.sources.len(), 2);
     assert_eq!(resolved.transforms.len(), 1);
-    
+
     // Get breakdown from resolver
     let breakdown = resolver.get_breakdown(&atk_id).unwrap();
     assert_eq!(breakdown.value, 225.0); // (100 + 50) * 1.5
 }
-

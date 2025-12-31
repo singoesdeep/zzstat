@@ -6,8 +6,8 @@
 
 use crate::error::StatError;
 use crate::stat_id::StatId;
-use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::algo::toposort;
+use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
 
 /// A directed acyclic graph (DAG) representing stat dependencies.
@@ -142,12 +142,7 @@ impl StatGraph {
 
         for node_idx in self.graph.node_indices() {
             if !visited.contains(&node_idx) {
-                if self.dfs_cycle_detect(
-                    node_idx,
-                    &mut visited,
-                    &mut rec_stack,
-                    &mut cycle_path,
-                ) {
+                if self.dfs_cycle_detect(node_idx, &mut visited, &mut rec_stack, &mut cycle_path) {
                     return Err(StatError::CycleDetected(cycle_path));
                 }
             }
@@ -167,7 +162,10 @@ impl StatGraph {
         rec_stack.insert(node);
         cycle_path.push(self.graph[node].clone());
 
-        for neighbor in self.graph.neighbors_directed(node, petgraph::Direction::Outgoing) {
+        for neighbor in self
+            .graph
+            .neighbors_directed(node, petgraph::Direction::Outgoing)
+        {
             if !visited.contains(&neighbor) {
                 if self.dfs_cycle_detect(neighbor, visited, rec_stack, cycle_path) {
                     return true;
@@ -218,12 +216,10 @@ impl StatGraph {
 
         // Use petgraph's toposort
         match toposort(&self.graph, None) {
-            Ok(indices) => {
-                Ok(indices
-                    .into_iter()
-                    .map(|idx| self.graph[idx].clone())
-                    .collect())
-            }
+            Ok(indices) => Ok(indices
+                .into_iter()
+                .map(|idx| self.graph[idx].clone())
+                .collect()),
             Err(cycle) => {
                 // This shouldn't happen if detect_cycles passed, but handle it anyway
                 let cycle_path = vec![self.graph[cycle.node_id()].clone()];
@@ -364,7 +360,7 @@ mod tests {
         graph.add_edge(crit.clone(), dex.clone());
 
         let sorted = graph.topological_sort().unwrap();
-        
+
         // STR and DEX should come before ATK and CRIT
         let str_pos = sorted.iter().position(|s| s == &str).unwrap();
         let dex_pos = sorted.iter().position(|s| s == &dex).unwrap();
@@ -375,4 +371,3 @@ mod tests {
         assert!(dex_pos < crit_pos);
     }
 }
-

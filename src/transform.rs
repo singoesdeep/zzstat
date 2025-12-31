@@ -451,7 +451,7 @@ mod tests {
         let transform = MultiplicativeTransform::new(1.5);
         let context = StatContext::new();
         let deps = HashMap::new();
-        
+
         assert_eq!(transform.apply(100.0, &deps, &context).unwrap(), 150.0);
     }
 
@@ -460,7 +460,7 @@ mod tests {
         let transform = AdditiveTransform::new(25.0);
         let context = StatContext::new();
         let deps = HashMap::new();
-        
+
         assert_eq!(transform.apply(100.0, &deps, &context).unwrap(), 125.0);
     }
 
@@ -469,7 +469,7 @@ mod tests {
         let transform = ClampTransform::new(0.0, 100.0);
         let context = StatContext::new();
         let deps = HashMap::new();
-        
+
         assert_eq!(transform.apply(150.0, &deps, &context).unwrap(), 100.0);
         assert_eq!(transform.apply(-10.0, &deps, &context).unwrap(), 0.0);
         assert_eq!(transform.apply(50.0, &deps, &context).unwrap(), 50.0);
@@ -482,7 +482,7 @@ mod tests {
         let context = StatContext::new();
         let mut deps = HashMap::new();
         deps.insert(str_id.clone(), 10.0);
-        
+
         assert_eq!(transform.depends_on(), vec![str_id]);
         assert_eq!(transform.apply(100.0, &deps, &context).unwrap(), 120.0);
     }
@@ -493,7 +493,7 @@ mod tests {
         let transform = ScalingTransform::new(str_id, 2.0);
         let context = StatContext::new();
         let deps = HashMap::new();
-        
+
         assert!(transform.apply(100.0, &deps, &context).is_err());
     }
 
@@ -501,19 +501,18 @@ mod tests {
     fn test_conditional_transform() {
         let mut context = StatContext::new();
         context.set("in_combat", true);
-        
+
         let inner_transform = Box::new(MultiplicativeTransform::new(1.2));
         let transform = ConditionalTransform::new(
             |ctx| ctx.get::<bool>("in_combat").unwrap_or(false),
             inner_transform,
             "combat bonus",
         );
-        
+
         let deps = HashMap::new();
         assert_eq!(transform.apply(100.0, &deps, &context).unwrap(), 120.0);
-        
+
         context.set("in_combat", false);
         assert_eq!(transform.apply(100.0, &deps, &context).unwrap(), 100.0);
     }
 }
-

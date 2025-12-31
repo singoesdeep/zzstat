@@ -88,7 +88,9 @@ impl StatContext {
     /// assert_eq!(missing, None);
     /// ```
     pub fn get<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Option<T> {
-        self.data.get(key).and_then(|v| serde_json::from_value(v.clone()).ok())
+        self.data
+            .get(key)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
     /// Check if a key exists in the context.
@@ -117,7 +119,7 @@ mod tests {
     fn test_context_set_get() {
         let mut ctx = StatContext::new();
         ctx.set("difficulty", 5);
-        
+
         let difficulty: Option<i32> = ctx.get("difficulty");
         assert_eq!(difficulty, Some(5));
     }
@@ -129,4 +131,3 @@ mod tests {
         assert_eq!(value, None);
     }
 }
-
