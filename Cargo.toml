@@ -1,0 +1,16 @@
+[package]
+name = "zzstat"
+version = "0.1.4"
+edition = "2021"
+license = "MIT"
+description = "A deterministic, hardcode-free stat calculation engine designed for MMORPGs"
+repository = "https://github.com/singoesdeep/zzstat"
+authors = ["singoesdeep"]
+keywords = ["game", "mmorpg", "stats", "calculation", "deterministic"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+petgraph = "0.6"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
