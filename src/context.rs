@@ -130,4 +130,83 @@ mod tests {
         let value: Option<i32> = ctx.get("missing");
         assert_eq!(value, None);
     }
+
+    #[test]
+    fn test_context_different_types() {
+        let mut ctx = StatContext::new();
+        ctx.set("int", 42);
+        ctx.set("float", 3.14);
+        ctx.set("bool", true);
+        ctx.set("string", "hello");
+        ctx.set("vec", vec![1, 2, 3]);
+
+        assert_eq!(ctx.get::<i32>("int"), Some(42));
+        assert_eq!(ctx.get::<f64>("float"), Some(3.14));
+        assert_eq!(ctx.get::<bool>("bool"), Some(true));
+        assert_eq!(ctx.get::<String>("string"), Some("hello".to_string()));
+        assert_eq!(ctx.get::<Vec<i32>>("vec"), Some(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_context_type_mismatch() {
+        let mut ctx = StatContext::new();
+        ctx.set("value", 42);
+
+        // Try to get as wrong type
+        let result: Option<String> = ctx.get("value");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_context_contains_key() {
+        let mut ctx = StatContext::new();
+        ctx.set("key1", "value1");
+
+        assert!(ctx.contains_key("key1"));
+        assert!(!ctx.contains_key("key2"));
+    }
+
+    #[test]
+    fn test_context_overwrite() {
+        let mut ctx = StatContext::new();
+        ctx.set("value", 10);
+        assert_eq!(ctx.get::<i32>("value"), Some(10));
+
+        ctx.set("value", 20);
+        assert_eq!(ctx.get::<i32>("value"), Some(20));
+    }
+
+    #[test]
+    fn test_context_serialization() {
+        use serde_json;
+
+        let mut ctx = StatContext::new();
+        ctx.set("int", 42);
+        ctx.set("string", "hello");
+
+        // Serialize
+        let json = serde_json::to_string(&ctx).unwrap();
+        assert!(json.contains("int"));
+        assert!(json.contains("hello"));
+
+        // Deserialize
+        let deserialized: StatContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.get::<i32>("int"), Some(42));
+        assert_eq!(deserialized.get::<String>("string"), Some("hello".to_string()));
+    }
+
+    #[test]
+    fn test_context_clone() {
+        let mut ctx1 = StatContext::new();
+        ctx1.set("value", 42);
+
+        let ctx2 = ctx1.clone();
+        assert_eq!(ctx2.get::<i32>("value"), Some(42));
+
+        // Modify original
+        ctx1.set("value", 100);
+        assert_eq!(ctx1.get::<i32>("value"), Some(100));
+        // Clone should be unchanged
+        assert_eq!(ctx2.get::<i32>("value"), Some(42));
+    }
 }

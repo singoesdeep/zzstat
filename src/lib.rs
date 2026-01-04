@@ -62,9 +62,11 @@
 //! - [`graph`] - Dependency graph management
 //! - [`error`] - Error types
 
+pub mod bonus;
 pub mod context;
 pub mod error;
 pub mod graph;
+pub mod numeric;
 pub mod resolved;
 pub mod resolver;
 pub mod source;
@@ -82,5 +84,13 @@ pub use stat_id::StatId;
 pub use source::{ConstantSource, MapSource, StatSource};
 pub use transform::{
     AdditiveTransform, ClampTransform, ConditionalTransform, MultiplicativeTransform,
-    ScalingTransform, StatTransform,
+    ScalingTransform, StackRule, StatTransform, TransformEntry, TransformPhase,
 };
+
+// Re-export numeric types
+pub use numeric::{StatNumeric, StatValue};
+#[cfg(feature = "fixed-point")]
+pub use numeric::FixedPoint;
+
+// Re-export bonus types
+pub use bonus::{apply_compiled_bonus, apply_compiled_bonuses, compile_bonus, Bonus, BonusOp, BonusValue, CompiledBonus};

@@ -5,6 +5,7 @@
 //! deterministic - the same input always produces the same output.
 
 use crate::context::StatContext;
+use crate::numeric::{StatNumeric, StatValue};
 use crate::stat_id::StatId;
 use std::collections::HashMap;
 
@@ -38,7 +39,7 @@ pub trait StatSource: Send + Sync {
     /// # Returns
     ///
     /// The base value contributed by this source.
-    fn get_value(&self, stat_id: &StatId, context: &StatContext) -> f64;
+    fn get_value(&self, stat_id: &StatId, context: &StatContext) -> StatValue;
 }
 
 /// A constant source that always returns the same value.
@@ -62,8 +63,8 @@ pub trait StatSource: Send + Sync {
 pub struct ConstantSource(pub f64);
 
 impl StatSource for ConstantSource {
-    fn get_value(&self, _stat_id: &StatId, _context: &StatContext) -> f64 {
-        self.0
+    fn get_value(&self, _stat_id: &StatId, _context: &StatContext) -> StatValue {
+        StatValue::from_f64(self.0)
     }
 }
 
@@ -145,8 +146,8 @@ impl MapSource {
 }
 
 impl StatSource for MapSource {
-    fn get_value(&self, stat_id: &StatId, _context: &StatContext) -> f64 {
-        self.values.get(stat_id).copied().unwrap_or(0.0)
+    fn get_value(&self, stat_id: &StatId, _context: &StatContext) -> StatValue {
+        StatValue::from_f64(self.values.get(stat_id).copied().unwrap_or(0.0))
     }
 }
 
@@ -160,7 +161,7 @@ mod tests {
         let context = StatContext::new();
         let stat_id = StatId::from_str("HP");
 
-        assert_eq!(source.get_value(&stat_id, &context), 100.0);
+        assert_eq!(source.get_value(&stat_id, &context), StatValue::from_f64(100.0));
     }
 
     #[test]
@@ -173,11 +174,85 @@ mod tests {
         source.insert(atk_id.clone(), 50.0);
 
         let context = StatContext::new();
-        assert_eq!(source.get_value(&hp_id, &context), 100.0);
-        assert_eq!(source.get_value(&atk_id, &context), 50.0);
+        assert_eq!(source.get_value(&hp_id, &context), StatValue::from_f64(100.0));
+        assert_eq!(source.get_value(&atk_id, &context), StatValue::from_f64(50.0));
         assert_eq!(
             source.get_value(&StatId::from_str("MISSING"), &context),
-            0.0
+            StatValue::from_f64(0.0)
         );
+    }
+
+    #[test]
+    fn test_map_source_new() {
+        use std::collections::HashMap;
+        let mut values = HashMap::new();
+        values.insert(StatId::from_str("HP"), 100.0);
+        values.insert(StatId::from_str("MP"), 50.0);
+
+        let source = MapSource::new(values);
+        let context = StatContext::new();
+
+        assert_eq!(
+            source.get_value(&StatId::from_str("HP"), &context),
+            StatValue::from_f64(100.0)
+        );
+        assert_eq!(
+            source.get_value(&StatId::from_str("MP"), &context),
+            StatValue::from_f64(50.0)
+        );
+    }
+
+    #[test]
+    fn test_map_source_insert_overwrite() {
+        let mut source = MapSource::empty();
+        let hp_id = StatId::from_str("HP");
+
+        source.insert(hp_id.clone(), 100.0);
+        let context = StatContext::new();
+        assert_eq!(source.get_value(&hp_id, &context), StatValue::from_f64(100.0));
+
+        source.insert(hp_id.clone(), 200.0);
+        assert_eq!(source.get_value(&hp_id, &context), StatValue::from_f64(200.0));
+    }
+
+    #[test]
+    fn test_map_source_empty() {
+        let source = MapSource::empty();
+        let context = StatContext::new();
+
+        assert_eq!(
+            source.get_value(&StatId::from_str("ANY"), &context),
+            StatValue::from_f64(0.0)
+        );
+    }
+
+    #[test]
+    fn test_constant_source_negative() {
+        let source = ConstantSource(-50.0);
+        let context = StatContext::new();
+        let stat_id = StatId::from_str("HP");
+
+        assert_eq!(source.get_value(&stat_id, &context), StatValue::from_f64(-50.0));
+    }
+
+    #[test]
+    fn test_constant_source_zero() {
+        let source = ConstantSource(0.0);
+        let context = StatContext::new();
+        let stat_id = StatId::from_str("HP");
+
+        assert_eq!(source.get_value(&stat_id, &context), StatValue::from_f64(0.0));
+    }
+
+    #[test]
+    fn test_constant_source_clone() {
+        let source1 = ConstantSource(100.0);
+        let source2 = source1.clone();
+
+        let context = StatContext::new();
+        let stat_id = StatId::from_str("HP");
+
+        assert_eq!(source1.get_value(&stat_id, &context), StatValue::from_f64(100.0));
+        assert_eq!(source2.get_value(&stat_id, &context), StatValue::from_f64(100.0));
     }
 }

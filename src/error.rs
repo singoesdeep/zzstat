@@ -6,6 +6,17 @@
 use crate::stat_id::StatId;
 use thiserror::Error;
 
+/// Format a cycle path as a readable string.
+fn format_cycle_path(path: &[StatId]) -> String {
+    if path.is_empty() {
+        return String::from("(empty cycle)");
+    }
+    path.iter()
+        .map(|id| id.as_str())
+        .collect::<Vec<_>>()
+        .join(" -> ")
+}
+
 /// Errors that can occur during stat resolution.
 ///
 /// # Examples
@@ -25,9 +36,9 @@ pub enum StatError {
     /// # Example
     ///
     /// If A depends on B, B depends on C, and C depends on A,
-    /// this error will contain `[A, C, B, A]` showing the cycle.
-    #[error("Dependency cycle detected: {0:?}")]
-    CycleDetected(Vec<StatId>),
+    /// this error will contain `[A, B, C, A]` showing the cycle.
+    #[error("Cycle detected: {}", format_cycle_path(.path))]
+    Cycle { path: Vec<StatId> },
 
     /// A required dependency stat was not found.
     ///
@@ -57,5 +68,21 @@ mod tests {
     fn test_error_display() {
         let err = StatError::MissingSource(StatId::from_str("HP"));
         assert!(err.to_string().contains("HP"));
+    }
+
+    #[test]
+    fn test_cycle_error_display() {
+        let a = StatId::from_str("A");
+        let b = StatId::from_str("B");
+        let c = StatId::from_str("C");
+        let err = StatError::Cycle {
+            path: vec![a.clone(), b.clone(), c.clone(), a.clone()],
+        };
+        let display = err.to_string();
+        assert!(display.contains("Cycle detected"));
+        assert!(display.contains("A"));
+        assert!(display.contains("B"));
+        assert!(display.contains("C"));
+        assert!(display.contains(" -> "));
     }
 }

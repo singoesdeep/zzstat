@@ -158,7 +158,7 @@ checksum = "e3280a1b827474fcd5dbef4b35a674deb52ba5c312363aef9135317df179d81b"
 
 [[package]]
 name = "zzstat"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "petgraph",
  "serde",

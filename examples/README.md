@@ -53,8 +53,21 @@ Demonstrates:
 - Using StatContext to pass game state
 - Conditional transforms based on context
 - Different stat values in different contexts (combat, PvP zones, etc.)
+- Cache invalidation when context changes
 
 Run with: `cargo run --example context`
+
+### `advanced.rs`
+**Advanced features: forking, batch resolution, and transform phases**
+
+Demonstrates:
+- Resolver forking (copy-on-write semantics)
+- Batch resolution for efficient stat resolution
+- Transform phase ordering (Additive → Multiplicative → Final)
+- Multiple forks from the same base resolver
+- Subgraph extraction for targeted resolution
+
+Run with: `cargo run --example advanced`
 
 ## Running Examples
 

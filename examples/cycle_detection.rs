@@ -46,7 +46,7 @@ fn main() {
 
     let context = StatContext::new();
     match resolver.resolve(&a_id, &context) {
-        Err(StatError::CycleDetected(cycle)) => {
+        Err(StatError::Cycle { path: cycle }) => {
             println!("✓ Cycle detected successfully!");
             println!("\nCycle path:");
             for (i, stat_id) in cycle.iter().enumerate() {
