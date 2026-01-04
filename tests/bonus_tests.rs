@@ -198,7 +198,9 @@ fn test_apply_compiled_bonuses_to_fork() {
     base_resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
     let bonuses = vec![
-        Bonus::add(hp_id.clone()).flat(50.0).in_phase(TransformPhase::Custom(3)),
+        Bonus::add(hp_id.clone())
+            .flat(50.0)
+            .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(atk_id.clone())
             .percent(0.20)
             .in_phase(TransformPhase::Custom(3)),
@@ -210,7 +212,9 @@ fn test_apply_compiled_bonuses_to_fork() {
     apply_compiled_bonuses(&mut fork, &compiled);
 
     let context = StatContext::new();
-    let stats = fork.resolve_batch(&[hp_id.clone(), atk_id.clone()], &context).unwrap();
+    let stats = fork
+        .resolve_batch(&[hp_id.clone(), atk_id.clone()], &context)
+        .unwrap();
 
     assert_eq!(stats[&hp_id].value.to_f64(), 1050.0); // 1000 + 50
     assert_eq!(stats[&atk_id].value.to_f64(), 120.0); // 100 * 1.20
@@ -257,12 +261,17 @@ fn test_override_resets_value_in_phase() {
 
     // Item phase: +200 HP, +10% HP
     let item_bonuses = vec![
-        Bonus::add(hp_id.clone()).flat(200.0).in_phase(TransformPhase::Custom(3)),
+        Bonus::add(hp_id.clone())
+            .flat(200.0)
+            .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(hp_id.clone())
             .percent(0.10)
             .in_phase(TransformPhase::Custom(3)),
     ];
-    let item_compiled: Vec<_> = item_bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let item_compiled: Vec<_> = item_bonuses
+        .iter()
+        .map(|b| compile_bonus::<f64>(b))
+        .collect();
 
     let mut item_fork = resolver.fork();
     apply_compiled_bonuses(&mut item_fork, &item_compiled);
@@ -279,7 +288,10 @@ fn test_override_resets_value_in_phase() {
             .percent(0.50)
             .in_phase(TransformPhase::Custom(4)),
     ];
-    let buff_compiled: Vec<_> = buff_bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let buff_compiled: Vec<_> = buff_bonuses
+        .iter()
+        .map(|b| compile_bonus::<f64>(b))
+        .collect();
 
     let mut buff_fork = item_fork.fork();
     apply_compiled_bonuses(&mut buff_fork, &buff_compiled);
@@ -299,7 +311,9 @@ fn test_override_does_not_affect_previous_phases() {
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     // Phase 3: +200 HP
-    let phase3_bonus = Bonus::add(hp_id.clone()).flat(200.0).in_phase(TransformPhase::Custom(3));
+    let phase3_bonus = Bonus::add(hp_id.clone())
+        .flat(200.0)
+        .in_phase(TransformPhase::Custom(3));
     let mut phase3_fork = resolver.fork();
     apply_compiled_bonus(&mut phase3_fork, &compile_bonus::<f64>(&phase3_bonus));
 
@@ -379,7 +393,9 @@ fn test_override_does_not_mutate_resolver_state() {
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     // Add some transforms first
-    let add_bonus = Bonus::add(hp_id.clone()).flat(200.0).in_phase(TransformPhase::Custom(3));
+    let add_bonus = Bonus::add(hp_id.clone())
+        .flat(200.0)
+        .in_phase(TransformPhase::Custom(3));
     let mul_bonus = Bonus::mul(hp_id.clone())
         .percent(0.10)
         .in_phase(TransformPhase::Custom(3));
@@ -393,7 +409,8 @@ fn test_override_does_not_mutate_resolver_state() {
     assert_eq!(before_override.value.to_f64(), 1320.0); // (1000 + 200) * 1.10
 
     // Add override in different phase
-    let override_bonus = Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
+    let override_bonus =
+        Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
     apply_compiled_bonus(&mut fork, &compile_bonus::<f64>(&override_bonus));
 
     let after_override = fork.resolve(&hp_id, &context).unwrap();
@@ -414,12 +431,15 @@ fn test_override_works_with_resolver_forks() {
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     // Fork 1: Add +200 HP
-    let add_bonus = Bonus::add(hp_id.clone()).flat(200.0).in_phase(TransformPhase::Custom(3));
+    let add_bonus = Bonus::add(hp_id.clone())
+        .flat(200.0)
+        .in_phase(TransformPhase::Custom(3));
     let mut fork1 = base_resolver.fork();
     apply_compiled_bonus(&mut fork1, &compile_bonus::<f64>(&add_bonus));
 
     // Fork 2: Override to 500
-    let override_bonus = Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
+    let override_bonus =
+        Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
     let mut fork2 = base_resolver.fork();
     apply_compiled_bonus(&mut fork2, &compile_bonus::<f64>(&override_bonus));
 
@@ -477,26 +497,35 @@ fn test_complete_item_system() {
 
     // Define item bonuses
     let sword_bonuses = vec![
-        Bonus::add(atk_id.clone()).flat(25.0).in_phase(TransformPhase::Custom(3)),
+        Bonus::add(atk_id.clone())
+            .flat(25.0)
+            .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(atk_id.clone())
             .percent(0.15)
             .in_phase(TransformPhase::Custom(3)),
     ];
 
-    let armor_bonuses = vec![Bonus::add(hp_id.clone()).flat(100.0).in_phase(TransformPhase::Custom(3))];
+    let armor_bonuses = vec![Bonus::add(hp_id.clone())
+        .flat(100.0)
+        .in_phase(TransformPhase::Custom(3))];
 
     // Compile all bonuses
     let mut all_bonuses = Vec::new();
     all_bonuses.extend(sword_bonuses);
     all_bonuses.extend(armor_bonuses);
-    let all_compiled: Vec<_> = all_bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let all_compiled: Vec<_> = all_bonuses
+        .iter()
+        .map(|b| compile_bonus::<f64>(b))
+        .collect();
 
     // Apply to character
     let mut equipped_fork = base_resolver.fork();
     apply_compiled_bonuses(&mut equipped_fork, &all_compiled);
 
     let context = StatContext::new();
-    let stats = equipped_fork.resolve_batch(&[hp_id.clone(), atk_id.clone()], &context).unwrap();
+    let stats = equipped_fork
+        .resolve_batch(&[hp_id.clone(), atk_id.clone()], &context)
+        .unwrap();
 
     // HP: 1000 + 100 = 1100
     assert_eq!(stats[&hp_id].value.to_f64(), 1100.0);
@@ -504,4 +533,3 @@ fn test_complete_item_system() {
     // ATK: (100 + 25) * 1.15 = 143.75
     assert_eq!(stats[&atk_id].value.to_f64(), 143.75);
 }
-

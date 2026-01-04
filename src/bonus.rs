@@ -9,8 +9,8 @@ use crate::error::StatError;
 use crate::numeric::{StatNumeric, StatValue};
 use crate::stat_id::StatId;
 use crate::transform::{
-    AdditiveTransform, ClampTransform, MultiplicativeTransform, StackRule,
-    StatTransform, TransformPhase,
+    AdditiveTransform, ClampTransform, MultiplicativeTransform, StackRule, StatTransform,
+    TransformPhase,
 };
 use std::collections::HashMap;
 
@@ -340,19 +340,21 @@ enum TransformData {
 pub fn compile_bonus<N: StatNumeric>(bonus: &Bonus) -> CompiledBonus<N> {
     let (transform_data, stack_rule) = match bonus.operation {
         BonusOp::Add => match bonus.value {
-            BonusValue::Flat(value) => {
-                (TransformData::AdditiveFlat(value), StackRule::Additive)
-            }
-            BonusValue::Percent(percent) => {
-                (TransformData::AdditivePercent(bonus.target.clone(), percent), StackRule::Additive)
-            }
+            BonusValue::Flat(value) => (TransformData::AdditiveFlat(value), StackRule::Additive),
+            BonusValue::Percent(percent) => (
+                TransformData::AdditivePercent(bonus.target.clone(), percent),
+                StackRule::Additive,
+            ),
         },
         BonusOp::Multiply => {
             let multiplier = match bonus.value {
                 BonusValue::Percent(percent) => 1.0 + percent,
                 BonusValue::Flat(v) => v,
             };
-            (TransformData::Multiplicative(multiplier), StackRule::Multiplicative)
+            (
+                TransformData::Multiplicative(multiplier),
+                StackRule::Multiplicative,
+            )
         }
         BonusOp::Override => {
             let value = match bonus.value {
@@ -390,18 +392,14 @@ impl<N: StatNumeric> CompiledBonus<N> {
     /// Create a Box<dyn StatTransform> from the stored transform data.
     fn to_transform(&self) -> Box<dyn StatTransform> {
         match &self.transform_data {
-            TransformData::AdditiveFlat(value) => {
-                Box::new(AdditiveTransform::new(*value))
-            }
+            TransformData::AdditiveFlat(value) => Box::new(AdditiveTransform::new(*value)),
             TransformData::AdditivePercent(dep, percent) => {
                 Box::new(PercentAdditiveTransform::new(dep.clone(), *percent))
             }
             TransformData::Multiplicative(multiplier) => {
                 Box::new(MultiplicativeTransform::new(*multiplier))
             }
-            TransformData::Override(value) => {
-                Box::new(OverrideTransform::new(*value))
-            }
+            TransformData::Override(value) => Box::new(OverrideTransform::new(*value)),
             TransformData::ClampMin(min_value) => {
                 Box::new(ClampTransform::with_min(StatValue::from_f64(*min_value)))
             }
@@ -497,7 +495,10 @@ struct PercentAdditiveTransform {
 
 impl PercentAdditiveTransform {
     fn new(dependency: StatId, percent: f64) -> Self {
-        Self { dependency, percent }
+        Self {
+            dependency,
+            percent,
+        }
     }
 }
 
@@ -586,4 +587,3 @@ impl BonusValue {
         }
     }
 }
-

@@ -7,7 +7,9 @@
 //! - Subgraph extraction
 
 use zzstat::source::ConstantSource;
-use zzstat::transform::{AdditiveTransform, ClampTransform, MultiplicativeTransform, ScalingTransform};
+use zzstat::transform::{
+    AdditiveTransform, ClampTransform, MultiplicativeTransform, ScalingTransform,
+};
 use zzstat::*;
 
 fn main() -> Result<(), StatError> {
@@ -119,10 +121,10 @@ fn main() -> Result<(), StatError> {
     println!("Registering multiple clamp transforms:");
     println!("  Clamp 1: [0.0, 0.75]");
     println!("  Clamp 2: [0.0, 0.80]");
-    
-    use zzstat::transform::{StackRule, TransformPhase};
+
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::{StackRule, TransformPhase};
+
     resolver.register_transform_with_rule(
         crit_id.clone(),
         TransformPhase::Final,
@@ -213,4 +215,3 @@ fn main() -> Result<(), StatError> {
 
     Ok(())
 }
-

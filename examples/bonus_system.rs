@@ -41,7 +41,9 @@ fn main() -> Result<(), StatError> {
 
     // Define bonuses declaratively
     let bonuses = vec![
-        Bonus::add(hp_id.clone()).flat(50.0).in_phase(TransformPhase::Custom(3)),
+        Bonus::add(hp_id.clone())
+            .flat(50.0)
+            .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(attack_id.clone())
             .percent(0.20)
             .in_phase(TransformPhase::Custom(3)),
@@ -78,12 +80,17 @@ fn main() -> Result<(), StatError> {
     override_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     let item_bonuses = vec![
-        Bonus::add(hp_id.clone()).flat(200.0).in_phase(TransformPhase::Custom(3)),
+        Bonus::add(hp_id.clone())
+            .flat(200.0)
+            .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(hp_id.clone())
             .percent(0.10)
             .in_phase(TransformPhase::Custom(3)),
     ];
-    let item_compiled: Vec<_> = item_bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let item_compiled: Vec<_> = item_bonuses
+        .iter()
+        .map(|b| compile_bonus::<f64>(b))
+        .collect();
 
     let mut item_fork = override_resolver.fork();
     apply_compiled_bonuses(&mut item_fork, &item_compiled);
@@ -101,7 +108,10 @@ fn main() -> Result<(), StatError> {
             .percent(0.50)
             .in_phase(TransformPhase::Custom(4)),
     ];
-    let buff_compiled: Vec<_> = buff_bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let buff_compiled: Vec<_> = buff_bonuses
+        .iter()
+        .map(|b| compile_bonus::<f64>(b))
+        .collect();
 
     let mut buff_fork = item_fork.fork();
     apply_compiled_bonuses(&mut buff_fork, &buff_compiled);
@@ -121,8 +131,8 @@ fn main() -> Result<(), StatError> {
     println!("--- Example 3: Clamp Bonuses ---");
 
     // Crit chance cap at 75%
-    let clamp_bonus = Bonus::clamp_max(crit_chance_id.clone(), 0.75)
-        .in_phase(TransformPhase::Final);
+    let clamp_bonus =
+        Bonus::clamp_max(crit_chance_id.clone(), 0.75).in_phase(TransformPhase::Final);
 
     let mut clamp_fork = base_resolver.fork();
     apply_compiled_bonus(&mut clamp_fork, &compile_bonus::<f64>(&clamp_bonus));
@@ -154,7 +164,9 @@ fn main() -> Result<(), StatError> {
     let sword = Item {
         name: "Steel Sword",
         bonuses: vec![
-            Bonus::add(attack_id.clone()).flat(25.0).in_phase(TransformPhase::Custom(3)),
+            Bonus::add(attack_id.clone())
+                .flat(25.0)
+                .in_phase(TransformPhase::Custom(3)),
             Bonus::mul(attack_id.clone())
                 .percent(0.15)
                 .in_phase(TransformPhase::Custom(3)),
@@ -163,20 +175,26 @@ fn main() -> Result<(), StatError> {
 
     let armor = Item {
         name: "Plate Armor",
-        bonuses: vec![Bonus::add(hp_id.clone()).flat(100.0).in_phase(TransformPhase::Custom(3))],
+        bonuses: vec![Bonus::add(hp_id.clone())
+            .flat(100.0)
+            .in_phase(TransformPhase::Custom(3))],
     };
 
     // Compile all item bonuses once
     let mut all_bonuses = Vec::new();
     all_bonuses.extend(sword.bonuses);
     all_bonuses.extend(armor.bonuses);
-    let all_compiled: Vec<_> = all_bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let all_compiled: Vec<_> = all_bonuses
+        .iter()
+        .map(|b| compile_bonus::<f64>(b))
+        .collect();
 
     // Apply to character
     let mut equipped_fork = base_resolver.fork();
     apply_compiled_bonuses(&mut equipped_fork, &all_compiled);
 
-    let equipped_stats = equipped_fork.resolve_batch(&[hp_id.clone(), attack_id.clone()], &context)?;
+    let equipped_stats =
+        equipped_fork.resolve_batch(&[hp_id.clone(), attack_id.clone()], &context)?;
     println!("Base stats: HP = 1000, Attack = 100");
     println!(
         "Equipped {} and {}: HP = {:.2}, Attack = {:.2}",
@@ -188,4 +206,3 @@ fn main() -> Result<(), StatError> {
 
     Ok(())
 }
-

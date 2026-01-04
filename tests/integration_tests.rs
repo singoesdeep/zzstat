@@ -273,7 +273,9 @@ fn test_resolve_batch() {
     let context = StatContext::new();
 
     // Resolve batch with ATK and HP
-    let results = resolver.resolve_batch(&[atk_id.clone(), hp_id.clone()], &context).unwrap();
+    let results = resolver
+        .resolve_batch(&[atk_id.clone(), hp_id.clone()], &context)
+        .unwrap();
 
     // Should contain ATK and HP
     assert!(results.contains_key(&atk_id));
@@ -684,14 +686,14 @@ fn test_diminishing_returns() {
     // We'll use multiplicative transforms with diminishing stack rule
     // Actually, diminishing returns needs a k parameter, so let's use a custom approach
     // For now, let's test that diminishing applies the formula correctly
-    
+
     // Note: Diminishing returns formula: value × (1 - exp(-k × stacks))
     // With k=0.5 and 2 stacks: multiplier = 1 - exp(-0.5 × 2) = 1 - exp(-1) ≈ 0.632
-    
+
     // Since we can't easily create a diminishing transform without custom code,
     // let's test that the stack rule exists and the resolver handles it
     // For a proper test, we'd need a transform type that supports diminishing returns
-    
+
     // For now, this test documents the expected behavior
     // In practice, diminishing returns would be implemented as a custom transform type
 }
@@ -841,9 +843,9 @@ fn test_additive_stacking_negative() {
 /// Test MinMax stack rule with multiple clamp transforms.
 #[test]
 fn test_minmax_stack_rule() {
-    use zzstat::transform::StackRule;
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::StackRule;
+
     let mut resolver = StatResolver::new();
     let crit_id = StatId::from_str("CRIT");
 
@@ -880,9 +882,9 @@ fn test_minmax_stack_rule() {
 /// Test MinMax stack rule with min-only and max-only clamps.
 #[test]
 fn test_minmax_stack_rule_mixed_bounds() {
-    use zzstat::transform::StackRule;
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::StackRule;
+
     let mut resolver = StatResolver::new();
     let move_speed_id = StatId::from_str("MOVE_SPEED");
 
@@ -919,9 +921,9 @@ fn test_minmax_stack_rule_mixed_bounds() {
 /// Test clamp composition with additive transform.
 #[test]
 fn test_clamp_with_additive() {
-    use zzstat::transform::StackRule;
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::StackRule;
+
     let mut resolver = StatResolver::new();
     let atk_id = StatId::from_str("ATK");
 
@@ -956,9 +958,9 @@ fn test_clamp_with_additive() {
 /// Test clamp composition with multiplicative transform.
 #[test]
 fn test_clamp_with_multiplicative() {
-    use zzstat::transform::StackRule;
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::StackRule;
+
     let mut resolver = StatResolver::new();
     let atk_id = StatId::from_str("ATK");
 
@@ -993,9 +995,9 @@ fn test_clamp_with_multiplicative() {
 /// Test multiple clamps with MinMax: effective_min = max(all mins), effective_max = min(all maxes).
 #[test]
 fn test_multiple_clamps_minmax_composition() {
-    use zzstat::transform::StackRule;
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::StackRule;
+
     let mut resolver = StatResolver::new();
     let stat_id = StatId::from_str("STAT");
 
@@ -1016,7 +1018,7 @@ fn test_multiple_clamps_minmax_composition() {
         TransformPhase::Final,
         StackRule::MinMax,
         Box::new(ClampTransform::with_bounds(
-            Some(StatValue::from_f64(30.0)), // Higher min (more restrictive)
+            Some(StatValue::from_f64(30.0)),  // Higher min (more restrictive)
             Some(StatValue::from_f64(120.0)), // Lower max (more restrictive)
         )),
     );
@@ -1048,7 +1050,7 @@ fn test_multiple_clamps_minmax_composition() {
         TransformPhase::Final,
         StackRule::MinMax,
         Box::new(ClampTransform::with_bounds(
-            Some(StatValue::from_f64(30.0)), // Higher min (more restrictive)
+            Some(StatValue::from_f64(30.0)),  // Higher min (more restrictive)
             Some(StatValue::from_f64(120.0)), // Lower max (more restrictive)
         )),
     );
@@ -1060,9 +1062,9 @@ fn test_multiple_clamps_minmax_composition() {
 /// Test deterministic ordering: same transforms, different registration order.
 #[test]
 fn test_clamp_deterministic_ordering() {
-    use zzstat::transform::StackRule;
     use zzstat::numeric::StatValue;
-    
+    use zzstat::transform::StackRule;
+
     let mut resolver1 = StatResolver::new();
     let mut resolver2 = StatResolver::new();
     let stat_id = StatId::from_str("STAT");

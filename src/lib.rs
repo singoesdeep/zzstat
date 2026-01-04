@@ -88,9 +88,12 @@ pub use transform::{
 };
 
 // Re-export numeric types
-pub use numeric::{StatNumeric, StatValue};
 #[cfg(feature = "fixed-point")]
 pub use numeric::FixedPoint;
+pub use numeric::{StatNumeric, StatValue};
 
 // Re-export bonus types
-pub use bonus::{apply_compiled_bonus, apply_compiled_bonuses, compile_bonus, Bonus, BonusOp, BonusValue, CompiledBonus};
+pub use bonus::{
+    apply_compiled_bonus, apply_compiled_bonuses, compile_bonus, Bonus, BonusOp, BonusValue,
+    CompiledBonus,
+};

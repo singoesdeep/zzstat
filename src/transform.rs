@@ -616,7 +616,6 @@ impl ClampTransform {
         }
     }
 
-
     /// Get the minimum bound.
     ///
     /// Returns `None` if there is no lower bound.
@@ -674,17 +673,17 @@ impl StatTransform for ClampTransform {
         _context: &StatContext,
     ) -> Result<StatValue, StatError> {
         let mut result = input;
-        
+
         // Apply min bound if present
         if let Some(min) = self.min {
             result = result.max(min);
         }
-        
+
         // Apply max bound if present
         if let Some(max) = self.max {
             result = result.min(max);
         }
-        
+
         Ok(result)
     }
 
@@ -895,7 +894,12 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(150.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(150.0)
+        );
     }
 
     #[test]
@@ -904,7 +908,12 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(125.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(125.0)
+        );
     }
 
     #[test]
@@ -914,9 +923,27 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(150.0), &deps, &context).unwrap().to_f64(), 100.0);
-        assert_eq!(transform.apply(StatValue::from_f64(-10.0), &deps, &context).unwrap().to_f64(), 0.0);
-        assert_eq!(transform.apply(StatValue::from_f64(50.0), &deps, &context).unwrap().to_f64(), 50.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(150.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            100.0
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(-10.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            0.0
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(50.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            50.0
+        );
     }
 
     #[test]
@@ -929,9 +956,27 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(150.0), &deps, &context).unwrap().to_f64(), 100.0);
-        assert_eq!(transform.apply(StatValue::from_f64(-10.0), &deps, &context).unwrap().to_f64(), 0.0);
-        assert_eq!(transform.apply(StatValue::from_f64(50.0), &deps, &context).unwrap().to_f64(), 50.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(150.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            100.0
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(-10.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            0.0
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(50.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            50.0
+        );
     }
 
     #[test]
@@ -941,8 +986,20 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(50.0), &deps, &context).unwrap().to_f64(), 100.0);
-        assert_eq!(transform.apply(StatValue::from_f64(150.0), &deps, &context).unwrap().to_f64(), 150.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(50.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            100.0
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(150.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            150.0
+        );
         assert_eq!(transform.min(), Some(StatValue::from_f64(100.0)));
         assert_eq!(transform.max(), None);
     }
@@ -954,8 +1011,20 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(1.0), &deps, &context).unwrap().to_f64(), 0.75);
-        assert_eq!(transform.apply(StatValue::from_f64(0.5), &deps, &context).unwrap().to_f64(), 0.5);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(1.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            0.75
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(0.5), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            0.5
+        );
         assert_eq!(transform.min(), None);
         assert_eq!(transform.max(), Some(StatValue::from_f64(0.75)));
     }
@@ -968,8 +1037,20 @@ mod tests {
         let deps = HashMap::new();
 
         // No-op: should return input unchanged
-        assert_eq!(transform.apply(StatValue::from_f64(50.0), &deps, &context).unwrap().to_f64(), 50.0);
-        assert_eq!(transform.apply(StatValue::from_f64(150.0), &deps, &context).unwrap().to_f64(), 150.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(50.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            50.0
+        );
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(150.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            150.0
+        );
         assert_eq!(transform.min(), None);
         assert_eq!(transform.max(), None);
     }
@@ -1004,7 +1085,12 @@ mod tests {
         deps.insert(str_id.clone(), StatValue::from_f64(10.0));
 
         assert_eq!(transform.depends_on(), vec![str_id]);
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(120.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(120.0)
+        );
     }
 
     #[test]
@@ -1014,7 +1100,9 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert!(transform.apply(StatValue::from_f64(100.0), &deps, &context).is_err());
+        assert!(transform
+            .apply(StatValue::from_f64(100.0), &deps, &context)
+            .is_err());
     }
 
     #[test]
@@ -1030,10 +1118,20 @@ mod tests {
         );
 
         let deps = HashMap::new();
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(120.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(120.0)
+        );
 
         context.set("in_combat", false);
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(100.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(100.0)
+        );
     }
 
     #[test]
@@ -1059,7 +1157,12 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(0.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(0.0)
+        );
     }
 
     #[test]
@@ -1068,7 +1171,12 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(-100.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(-100.0)
+        );
     }
 
     #[test]
@@ -1077,7 +1185,12 @@ mod tests {
         let context = StatContext::new();
         let deps = HashMap::new();
 
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(50.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(50.0)
+        );
     }
 
     #[test]
@@ -1088,13 +1201,37 @@ mod tests {
         let deps = HashMap::new();
 
         // Exactly at min
-        assert_eq!(transform.apply(StatValue::from_f64(0.0), &deps, &context).unwrap().to_f64(), 0.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(0.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            0.0
+        );
         // Exactly at max
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap().to_f64(), 100.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            100.0
+        );
         // Below min
-        assert_eq!(transform.apply(StatValue::from_f64(-1.0), &deps, &context).unwrap().to_f64(), 0.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(-1.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            0.0
+        );
         // Above max
-        assert_eq!(transform.apply(StatValue::from_f64(101.0), &deps, &context).unwrap().to_f64(), 100.0);
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(101.0), &deps, &context)
+                .unwrap()
+                .to_f64(),
+            100.0
+        );
     }
 
     #[test]
@@ -1106,7 +1243,12 @@ mod tests {
         deps.insert(str_id.clone(), StatValue::from_f64(10.0));
 
         // 100 + 10 * 0 = 100
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(100.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(100.0)
+        );
     }
 
     #[test]
@@ -1118,7 +1260,12 @@ mod tests {
         deps.insert(str_id.clone(), StatValue::from_f64(10.0));
 
         // 100 + 10 * -2 = 80
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(80.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(80.0)
+        );
     }
 
     #[test]
@@ -1138,11 +1285,21 @@ mod tests {
         deps.insert(str_id.clone(), StatValue::from_f64(10.0));
 
         // When enabled: 100 + 10 * 2 = 120
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(120.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(120.0)
+        );
 
         context.set("enabled", false);
         // When disabled: 100 (unchanged)
-        assert_eq!(transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap(), StatValue::from_f64(100.0));
+        assert_eq!(
+            transform
+                .apply(StatValue::from_f64(100.0), &deps, &context)
+                .unwrap(),
+            StatValue::from_f64(100.0)
+        );
 
         // Check dependencies are forwarded
         assert_eq!(transform.depends_on(), vec![str_id]);

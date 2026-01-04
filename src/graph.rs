@@ -142,7 +142,9 @@ impl StatGraph {
         for node_idx in self.graph.node_indices() {
             if !visited.contains(&node_idx) {
                 let mut cycle_path = Vec::new();
-                if let Some(cycle) = self.dfs_cycle_detect(node_idx, &mut visited, &mut rec_stack, &mut cycle_path) {
+                if let Some(cycle) =
+                    self.dfs_cycle_detect(node_idx, &mut visited, &mut rec_stack, &mut cycle_path)
+                {
                     return Err(cycle);
                 }
             }
@@ -167,15 +169,18 @@ impl StatGraph {
             .neighbors_directed(node, petgraph::Direction::Outgoing)
         {
             if !visited.contains(&neighbor) {
-                if let Some(cycle) = self.dfs_cycle_detect(neighbor, visited, rec_stack, cycle_path) {
+                if let Some(cycle) = self.dfs_cycle_detect(neighbor, visited, rec_stack, cycle_path)
+                {
                     return Some(cycle);
                 }
             } else if rec_stack.contains(&neighbor) {
                 // Cycle detected - extract the cycle portion from the path
                 let neighbor_stat = self.graph[neighbor].clone();
-                
+
                 // Find where the cycle starts (where neighbor first appears)
-                if let Some(cycle_start_pos) = cycle_path.iter().position(|stat| stat == &neighbor_stat) {
+                if let Some(cycle_start_pos) =
+                    cycle_path.iter().position(|stat| stat == &neighbor_stat)
+                {
                     // Extract only the cycle portion
                     let mut cycle: Vec<StatId> = cycle_path[cycle_start_pos..].to_vec();
                     // Close the loop by adding the neighbor again
@@ -184,7 +189,11 @@ impl StatGraph {
                 } else {
                     // Fallback: create cycle with current node and neighbor
                     return Some(StatError::Cycle {
-                        path: vec![self.graph[node].clone(), neighbor_stat.clone(), neighbor_stat],
+                        path: vec![
+                            self.graph[node].clone(),
+                            neighbor_stat.clone(),
+                            neighbor_stat,
+                        ],
                     });
                 }
             }
@@ -783,7 +792,9 @@ mod tests {
         let result1 = graph.detect_cycles();
         let result2 = graph.detect_cycles();
 
-        if let (Err(StatError::Cycle { path: path1 }), Err(StatError::Cycle { path: path2 })) = (result1, result2) {
+        if let (Err(StatError::Cycle { path: path1 }), Err(StatError::Cycle { path: path2 })) =
+            (result1, result2)
+        {
             // Paths should be the same (deterministic)
             assert_eq!(path1, path2);
         } else {

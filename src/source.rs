@@ -161,7 +161,10 @@ mod tests {
         let context = StatContext::new();
         let stat_id = StatId::from_str("HP");
 
-        assert_eq!(source.get_value(&stat_id, &context), StatValue::from_f64(100.0));
+        assert_eq!(
+            source.get_value(&stat_id, &context),
+            StatValue::from_f64(100.0)
+        );
     }
 
     #[test]
@@ -174,8 +177,14 @@ mod tests {
         source.insert(atk_id.clone(), 50.0);
 
         let context = StatContext::new();
-        assert_eq!(source.get_value(&hp_id, &context), StatValue::from_f64(100.0));
-        assert_eq!(source.get_value(&atk_id, &context), StatValue::from_f64(50.0));
+        assert_eq!(
+            source.get_value(&hp_id, &context),
+            StatValue::from_f64(100.0)
+        );
+        assert_eq!(
+            source.get_value(&atk_id, &context),
+            StatValue::from_f64(50.0)
+        );
         assert_eq!(
             source.get_value(&StatId::from_str("MISSING"), &context),
             StatValue::from_f64(0.0)
@@ -209,10 +218,16 @@ mod tests {
 
         source.insert(hp_id.clone(), 100.0);
         let context = StatContext::new();
-        assert_eq!(source.get_value(&hp_id, &context), StatValue::from_f64(100.0));
+        assert_eq!(
+            source.get_value(&hp_id, &context),
+            StatValue::from_f64(100.0)
+        );
 
         source.insert(hp_id.clone(), 200.0);
-        assert_eq!(source.get_value(&hp_id, &context), StatValue::from_f64(200.0));
+        assert_eq!(
+            source.get_value(&hp_id, &context),
+            StatValue::from_f64(200.0)
+        );
     }
 
     #[test]
@@ -232,7 +247,10 @@ mod tests {
         let context = StatContext::new();
         let stat_id = StatId::from_str("HP");
 
-        assert_eq!(source.get_value(&stat_id, &context), StatValue::from_f64(-50.0));
+        assert_eq!(
+            source.get_value(&stat_id, &context),
+            StatValue::from_f64(-50.0)
+        );
     }
 
     #[test]
@@ -241,7 +259,10 @@ mod tests {
         let context = StatContext::new();
         let stat_id = StatId::from_str("HP");
 
-        assert_eq!(source.get_value(&stat_id, &context), StatValue::from_f64(0.0));
+        assert_eq!(
+            source.get_value(&stat_id, &context),
+            StatValue::from_f64(0.0)
+        );
     }
 
     #[test]
@@ -252,7 +273,13 @@ mod tests {
         let context = StatContext::new();
         let stat_id = StatId::from_str("HP");
 
-        assert_eq!(source1.get_value(&stat_id, &context), StatValue::from_f64(100.0));
-        assert_eq!(source2.get_value(&stat_id, &context), StatValue::from_f64(100.0));
+        assert_eq!(
+            source1.get_value(&stat_id, &context),
+            StatValue::from_f64(100.0)
+        );
+        assert_eq!(
+            source2.get_value(&stat_id, &context),
+            StatValue::from_f64(100.0)
+        );
     }
 }

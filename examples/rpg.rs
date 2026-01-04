@@ -31,7 +31,15 @@ fn define_stat_ids() -> (StatId, StatId, StatId, StatId, StatId, StatId, StatId)
     let hp_id = StatId::from_str("HP");
     let crit_chance_id = StatId::from_str("CRIT_CHANCE");
 
-    (str_id, dex_id, vit_id, atk_id, def_id, hp_id, crit_chance_id)
+    (
+        str_id,
+        dex_id,
+        vit_id,
+        atk_id,
+        def_id,
+        hp_id,
+        crit_chance_id,
+    )
 }
 
 // ============================================================================
@@ -229,15 +237,21 @@ fn main() -> Result<(), StatError> {
 
     // Use batched resolution to efficiently resolve multiple stats at once
     // This only resolves the requested stats and their dependencies
-    let base_results = character
-        .base_resolver
-        .resolve_batch(
-            &[hp_id.clone(), atk_id.clone(), def_id.clone(), crit_chance_id.clone()],
-            &context,
-        )?;
+    let base_results = character.base_resolver.resolve_batch(
+        &[
+            hp_id.clone(),
+            atk_id.clone(),
+            def_id.clone(),
+            crit_chance_id.clone(),
+        ],
+        &context,
+    )?;
 
     println!("Final Stats:");
-    println!("  HP: {:.2} (VIT * 10 = 12 * 10)", base_results[&hp_id].value);
+    println!(
+        "  HP: {:.2} (VIT * 10 = 12 * 10)",
+        base_results[&hp_id].value
+    );
     println!(
         "  ATK: {:.2} (STR * 2 + DEX = 10 * 2 + 8)",
         base_results[&atk_id].value
@@ -281,18 +295,15 @@ fn main() -> Result<(), StatError> {
     println!("Final Stats (With Equipment):");
     println!(
         "  HP: {:.2} (base {} + item +50)",
-        equipped_results[&hp_id].value,
-        base_results[&hp_id].value
+        equipped_results[&hp_id].value, base_results[&hp_id].value
     );
     println!(
         "  ATK: {:.2} (base {} + item +5)",
-        equipped_results[&atk_id].value,
-        base_results[&atk_id].value
+        equipped_results[&atk_id].value, base_results[&atk_id].value
     );
     println!(
         "  DEF: {:.2} (base {} + item +3)",
-        equipped_results[&def_id].value,
-        base_results[&def_id].value
+        equipped_results[&def_id].value, base_results[&def_id].value
     );
     println!(
         "  CRIT_CHANCE: {:.2} (still clamped at 0.75)",
@@ -327,16 +338,12 @@ fn main() -> Result<(), StatError> {
     // ========================================================================
     println!("6. Verifying Base Character Unchanged\n");
 
-    let base_atk_again = character
-        .base_resolver
-        .resolve(&atk_id, &context)?;
+    let base_atk_again = character.base_resolver.resolve(&atk_id, &context)?;
     let equipped_atk = equipped_resolver.resolve(&atk_id, &context)?;
 
     println!("Base character ATK: {:.2}", base_atk_again.value);
     println!("Equipped character ATK: {:.2}", equipped_atk.value);
-    println!(
-        "✓ Base character unchanged (fork isolation working)\n"
-    );
+    println!("✓ Base character unchanged (fork isolation working)\n");
 
     // ========================================================================
     // Summary
@@ -352,4 +359,3 @@ fn main() -> Result<(), StatError> {
 
     Ok(())
 }
-

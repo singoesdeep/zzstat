@@ -561,7 +561,10 @@ impl StatResolver {
     /// only overlay sources are returned. Otherwise, base sources are returned.
     #[allow(dead_code)]
     fn get_sources(&self, stat_id: &StatId) -> Option<&Vec<Box<dyn StatSource>>> {
-        self.overlay.sources.get(stat_id).or_else(|| self.base.sources.get(stat_id))
+        self.overlay
+            .sources
+            .get(stat_id)
+            .or_else(|| self.base.sources.get(stat_id))
     }
 
     /// Get transforms for a stat (checking overlay first, then base).
@@ -569,7 +572,10 @@ impl StatResolver {
     /// Overlay completely shadows base - if overlay has transforms for this stat,
     /// only overlay transforms are returned. Otherwise, base transforms are returned.
     fn get_transforms(&self, stat_id: &StatId) -> Option<&Vec<TransformEntry>> {
-        self.overlay.transforms.get(stat_id).or_else(|| self.base.transforms.get(stat_id))
+        self.overlay
+            .transforms
+            .get(stat_id)
+            .or_else(|| self.base.transforms.get(stat_id))
     }
 
     /// Get all stat IDs that have sources or transforms.
@@ -746,7 +752,7 @@ impl StatResolver {
         // Combine overlay and base sources (overlay adds to base, doesn't shadow)
         let mut base_value = StatValue::zero();
         let mut source_count = 0;
-        
+
         // Collect base sources
         if let Some(base_sources) = self.base.sources.get(stat_id) {
             for source in base_sources.iter() {
@@ -756,7 +762,7 @@ impl StatResolver {
                 resolved.add_source(format!("Source #{}", source_count), value);
             }
         }
-        
+
         // Collect overlay sources (additive to base)
         if let Some(overlay_sources) = self.overlay.sources.get(stat_id) {
             for source in overlay_sources.iter() {
@@ -766,7 +772,7 @@ impl StatResolver {
                 resolved.add_source(format!("Source #{}", source_count), value);
             }
         }
-        
+
         // If no sources at all, create a default source entry
         if source_count == 0 {
             resolved.add_source("Default", StatValue::zero());
@@ -775,7 +781,7 @@ impl StatResolver {
         // Step 2: Apply transforms grouped by phase, then by stack rule
         // Combine overlay and base transforms (overlay adds to base, doesn't shadow)
         let mut current_value = base_value;
-        
+
         // Collect all transforms (base first, then overlay)
         let mut all_transforms = Vec::new();
         if let Some(base_transforms) = self.base.transforms.get(stat_id) {
@@ -784,7 +790,7 @@ impl StatResolver {
         if let Some(overlay_transforms) = self.overlay.transforms.get(stat_id) {
             all_transforms.extend(overlay_transforms.iter());
         }
-        
+
         if !all_transforms.is_empty() {
             // Group transforms by phase
             let mut transforms_by_phase: std::collections::BTreeMap<u8, Vec<&TransformEntry>> =
@@ -839,7 +845,7 @@ impl StatResolver {
         // Group entries by stack rule (sorted by priority)
         let mut by_rule: std::collections::BTreeMap<u8, Vec<&TransformEntry>> =
             std::collections::BTreeMap::new();
-        
+
         for entry in entries {
             let priority = entry.rule.priority();
             by_rule.entry(priority).or_default().push(entry);
@@ -855,18 +861,17 @@ impl StatResolver {
 
             // All entries in this group have the same stack rule
             let stack_rule = rule_entries[0].rule;
-            
+
             match stack_rule {
                 StackRule::Override => {
                     // Last transform wins (deterministic order - use last entry)
                     if let Some(last_entry) = rule_entries.last() {
-                        let dependencies = self.collect_dependencies(
-                            last_entry.transform.depends_on(),
-                            stat_id,
-                        )?;
-                        let new_value = last_entry
-                            .transform
-                            .apply(current_value, &dependencies, context)?;
+                        let dependencies =
+                            self.collect_dependencies(last_entry.transform.depends_on(), stat_id)?;
+                        let new_value =
+                            last_entry
+                                .transform
+                                .apply(current_value, &dependencies, context)?;
                         resolved.add_transform(last_entry.transform.description(), new_value);
                         current_value = new_value;
                     }
@@ -876,10 +881,8 @@ impl StatResolver {
                     // Extract delta by applying each transform to zero
                     let mut sum_delta = StatValue::zero();
                     for entry in &rule_entries {
-                        let dependencies = self.collect_dependencies(
-                            entry.transform.depends_on(),
-                            stat_id,
-                        )?;
+                        let dependencies =
+                            self.collect_dependencies(entry.transform.depends_on(), stat_id)?;
                         // Apply to zero to extract the additive delta
                         let zero = StatValue::zero();
                         let delta = entry.transform.apply(zero, &dependencies, context)?;
@@ -897,10 +900,8 @@ impl StatResolver {
                     // Extract multiplier by applying each transform to 1.0
                     let mut product_multiplier = StatValue::from_f64(1.0);
                     for entry in &rule_entries {
-                        let dependencies = self.collect_dependencies(
-                            entry.transform.depends_on(),
-                            stat_id,
-                        )?;
+                        let dependencies =
+                            self.collect_dependencies(entry.transform.depends_on(), stat_id)?;
                         // Apply to 1.0 to extract the multiplier
                         let one = StatValue::from_f64(1.0);
                         let multiplier = entry.transform.apply(one, &dependencies, context)?;
@@ -921,7 +922,10 @@ impl StatResolver {
                     let multiplier = 1.0 - (-k_f64 * stacks).exp();
                     current_value *= StatValue::from_f64(multiplier);
                     resolved.add_transform(
-                        format!("×{:.4} (diminishing k={:.2}, stacks={:.0})", multiplier, k_f64, stacks),
+                        format!(
+                            "×{:.4} (diminishing k={:.2}, stacks={:.0})",
+                            multiplier, k_f64, stacks
+                        ),
                         current_value,
                     );
                 }
@@ -932,15 +936,14 @@ impl StatResolver {
                         let bound = self.extract_min_bound(entry, stat_id, context)?;
                         if let Some(bound_value) = bound {
                             // Take the maximum of all min bounds (most restrictive)
-                            min_bound = Some(min_bound.map_or(bound_value, |m: StatValue| m.max(bound_value)));
+                            min_bound = Some(
+                                min_bound.map_or(bound_value, |m: StatValue| m.max(bound_value)),
+                            );
                         }
                     }
                     if let Some(min) = min_bound {
                         current_value = current_value.max(min);
-                        resolved.add_transform(
-                            format!("min({:.2})", min.to_f64()),
-                            current_value,
-                        );
+                        resolved.add_transform(format!("min({:.2})", min.to_f64()), current_value);
                     }
                 }
                 StackRule::Max => {
@@ -950,15 +953,14 @@ impl StatResolver {
                         let bound = self.extract_max_bound(entry, stat_id, context)?;
                         if let Some(bound_value) = bound {
                             // Take the minimum of all max bounds (most restrictive)
-                            max_bound = Some(max_bound.map_or(bound_value, |m: StatValue| m.min(bound_value)));
+                            max_bound = Some(
+                                max_bound.map_or(bound_value, |m: StatValue| m.min(bound_value)),
+                            );
                         }
                     }
                     if let Some(max) = max_bound {
                         current_value = current_value.min(max);
-                        resolved.add_transform(
-                            format!("max({:.2})", max.to_f64()),
-                            current_value,
-                        );
+                        resolved.add_transform(format!("max({:.2})", max.to_f64()), current_value);
                     }
                 }
                 StackRule::MinMax => {
@@ -966,7 +968,7 @@ impl StatResolver {
                     // effective_min = max(all mins), effective_max = min(all maxes)
                     let mut min_bounds = Vec::new();
                     let mut max_bounds = Vec::new();
-                    
+
                     for entry in &rule_entries {
                         // Extract bounds using helper methods
                         if let Some(min) = self.extract_min_bound(entry, stat_id, context)? {
@@ -976,15 +978,17 @@ impl StatResolver {
                             max_bounds.push(max);
                         }
                     }
-                    
+
                     // Compute effective bounds (most restrictive)
-                    let effective_min = min_bounds.iter().fold(None, |acc: Option<StatValue>, &m| {
-                        Some(acc.map_or(m, |a: StatValue| a.max(m)))
-                    });
-                    let effective_max = max_bounds.iter().fold(None, |acc: Option<StatValue>, &m| {
-                        Some(acc.map_or(m, |a: StatValue| a.min(m)))
-                    });
-                    
+                    let effective_min =
+                        min_bounds.iter().fold(None, |acc: Option<StatValue>, &m| {
+                            Some(acc.map_or(m, |a: StatValue| a.max(m)))
+                        });
+                    let effective_max =
+                        max_bounds.iter().fold(None, |acc: Option<StatValue>, &m| {
+                            Some(acc.map_or(m, |a: StatValue| a.min(m)))
+                        });
+
                     // Apply clamping
                     if let Some(min) = effective_min {
                         current_value = current_value.max(min);
@@ -992,7 +996,7 @@ impl StatResolver {
                     if let Some(max) = effective_max {
                         current_value = current_value.min(max);
                     }
-                    
+
                     // Update resolved stat description
                     match (effective_min, effective_max) {
                         (Some(min), Some(max)) => {
@@ -1052,13 +1056,12 @@ impl StatResolver {
         stat_id: &StatId,
         context: &StatContext,
     ) -> Result<Option<StatValue>, StatError> {
-        let dependencies = self.collect_dependencies(
-            entry.transform.depends_on(),
-            stat_id,
-        )?;
+        let dependencies = self.collect_dependencies(entry.transform.depends_on(), stat_id)?;
         let very_negative = StatValue::from_f64(-1e10);
-        let bound_result = entry.transform.apply(very_negative, &dependencies, context)?;
-        
+        let bound_result = entry
+            .transform
+            .apply(very_negative, &dependencies, context)?;
+
         // If the result differs from input, it's a bound
         if bound_result > very_negative {
             Ok(Some(bound_result))
@@ -1077,13 +1080,10 @@ impl StatResolver {
         stat_id: &StatId,
         context: &StatContext,
     ) -> Result<Option<StatValue>, StatError> {
-        let dependencies = self.collect_dependencies(
-            entry.transform.depends_on(),
-            stat_id,
-        )?;
+        let dependencies = self.collect_dependencies(entry.transform.depends_on(), stat_id)?;
         let very_large = StatValue::from_f64(1e10);
         let bound_result = entry.transform.apply(very_large, &dependencies, context)?;
-        
+
         // If the result differs from input, it's a bound
         if bound_result < very_large {
             Ok(Some(bound_result))

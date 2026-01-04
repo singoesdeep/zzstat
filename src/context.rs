@@ -192,7 +192,10 @@ mod tests {
         // Deserialize
         let deserialized: StatContext = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.get::<i32>("int"), Some(42));
-        assert_eq!(deserialized.get::<String>("string"), Some("hello".to_string()));
+        assert_eq!(
+            deserialized.get::<String>("string"),
+            Some("hello".to_string())
+        );
     }
 
     #[test]
