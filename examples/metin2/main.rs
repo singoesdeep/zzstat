@@ -58,8 +58,6 @@ struct ShowcaseSequence {
     step: usize,
 }
 
-
-
 // Events
 #[derive(Event)]
 struct AttackEvent {
@@ -77,9 +75,11 @@ struct DamageEvent {
 
 fn main() {
     App::new()
-        .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
-            1.0 / 60.0,
-        ))))
+        .add_plugins(
+            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                1.0 / 60.0,
+            ))),
+        )
         .add_plugins(bevy::asset::AssetPlugin {
             file_path: "examples/metin2/data".to_string(),
             ..default()
@@ -91,15 +91,14 @@ fn main() {
         .add_event::<AttackEvent>()
         .add_event::<DamageEvent>()
         .add_systems(OnEnter(AppState::Loading), load_assets)
-        .add_systems(Update, check_assets_loaded.run_if(in_state(AppState::Loading)))
+        .add_systems(
+            Update,
+            check_assets_loaded.run_if(in_state(AppState::Loading)),
+        )
         .add_systems(OnEnter(AppState::Running), setup_game)
         .add_systems(
             Update,
-            (
-                trigger_combat,
-                resolve_combat,
-                log_damage,
-            )
+            (trigger_combat, resolve_combat, log_damage)
                 .chain()
                 .run_if(in_state(AppState::Running)),
         )
@@ -257,7 +256,10 @@ fn setup_game(mut commands: Commands, game_data: Res<GameData>) {
     );
 
     let weapon_vnum = 299; // Epée de bataille +9
-    let weapon = data.weapons.get(&weapon_vnum).unwrap_or_else(|| data.weapons.values().next().unwrap());
+    let weapon = data
+        .weapons
+        .get(&weapon_vnum)
+        .unwrap_or_else(|| data.weapons.values().next().unwrap());
     let (min_att, max_att) = weapon.get_attack_values(9);
 
     let strength = 90.0;
@@ -279,12 +281,10 @@ fn setup_game(mut commands: Commands, game_data: Res<GameData>) {
     );
     println!("============================================================\n");
 
-    commands.spawn((
-        Player {
-            weapon_vnum,
-            raw_damage,
-        },
-    ));
+    commands.spawn((Player {
+        weapon_vnum,
+        raw_damage,
+    },));
 
     let monster_ids = vec![101, 691, 1093];
 
@@ -339,7 +339,8 @@ fn trigger_combat(
     mut attack_ev: EventWriter<AttackEvent>,
 ) {
     *timer += time.delta_seconds();
-    if *timer > 0.5 { // Trigger an attack every 0.5s for visual cadence
+    if *timer > 0.5 {
+        // Trigger an attack every 0.5s for visual cadence
         *timer = 0.0;
 
         if let Ok(player_ent) = player_q.get_single() {
@@ -404,13 +405,18 @@ fn resolve_combat(
                 a_res.register_source(StatId::from("WEAPON_BONUS"), Box::new(ConstantSource(0.0)));
                 a_res.register_source(StatId::from("SKILL_BONUS"), Box::new(ConstantSource(0.0)));
 
-                d_res.register_source(StatId::from("DEFENSE"), Box::new(ConstantSource(monster.defense)));
-                d_res.register_source(StatId::from("AVERAGE_RESIST"), Box::new(ConstantSource(0.0)));
+                d_res.register_source(
+                    StatId::from("DEFENSE"),
+                    Box::new(ConstantSource(monster.defense)),
+                );
+                d_res.register_source(
+                    StatId::from("AVERAGE_RESIST"),
+                    Box::new(ConstantSource(0.0)),
+                );
                 d_res.register_source(StatId::from("SKILL_RESIST"), Box::new(ConstantSource(0.0)));
 
-                let base_before_defense = player.raw_damage
-                    * (1.0 + monster.race_bonus)
-                    * (1.0 + monster.monster_bonus);
+                let base_before_defense =
+                    player.raw_damage * (1.0 + monster.race_bonus) * (1.0 + monster.monster_bonus);
 
                 let base_after_defense = f64::max(0.0, base_before_defense - monster.defense);
 
@@ -457,6 +463,9 @@ fn resolve_combat(
 
 fn log_damage(mut damage_ev: EventReader<DamageEvent>) {
     for ev in damage_ev.read() {
-        println!("   > [{}] : {:.2} Damage to {}", ev.hit_type, ev.amount, ev.target_name);
+        println!(
+            "   > [{}] : {:.2} Damage to {}",
+            ev.hit_type, ev.amount, ev.target_name
+        );
     }
 }

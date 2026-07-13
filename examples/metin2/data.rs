@@ -1,4 +1,4 @@
-use bevy::asset::{Asset, AssetLoader, AsyncReadExt, LoadContext, io::Reader};
+use bevy::asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, LoadContext};
 use bevy::reflect::TypePath;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -84,7 +84,8 @@ impl AssetLoader for JsonLoader {
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let str = String::from_utf8(bytes).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let str = String::from_utf8(bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         Ok(JsonAsset(str))
     }
 

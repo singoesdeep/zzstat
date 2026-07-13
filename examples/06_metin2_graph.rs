@@ -11,7 +11,7 @@ fn main() {
     // Stats
     resolver.register_source(StatId::from("LEVEL"), Box::new(ConstantSource(105.0)));
     resolver.register_source(StatId::from("STR"), Box::new(ConstantSource(90.0)));
-    
+
     // Attack calculation (Level * 2 + Str * 2)
     resolver.register_transform_in_phase(
         StatId::from("MAIN_ATTACK"),
@@ -51,7 +51,10 @@ fn main() {
     );
 
     // Defender
-    resolver.register_source(StatId::from("MONSTER_DEFENSE"), Box::new(ConstantSource(146.0)));
+    resolver.register_source(
+        StatId::from("MONSTER_DEFENSE"),
+        Box::new(ConstantSource(146.0)),
+    );
 
     // Damage after defense (Simplified for graph)
     resolver.register_transform_in_phase(
