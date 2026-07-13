@@ -109,11 +109,12 @@ Explore the `/examples` directory for comprehensive guides on how to use `zzstat
 - `02_resource_pool.rs`
 - `03_status_effects.rs`
 - `04_combat_engine.rs`
+- `metin2/` (Full MMORPG Damage Simulator)
 
 Run them with:
 ```bash
 cargo run --example 01_template_loader
-cargo run --example 02_resource_pool
+cargo run --example metin2
 ```
 
 ## 🤝 Using AI to Create Content
