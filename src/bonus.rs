@@ -13,7 +13,7 @@ use crate::transform::{
     TransformPhase,
 };
 use rustc_hash::FxHashMap;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Bonus operation type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

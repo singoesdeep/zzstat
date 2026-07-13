@@ -1,6 +1,6 @@
 //! Condition parser for dynamic transform evaluation.
 //!
-//! Provides a JSON-serializable definition of logical conditions 
+//! Provides a JSON-serializable definition of logical conditions
 //! that can be evaluated dynamically against a `StatContext`.
 
 use crate::context::StatContext;
@@ -13,23 +13,29 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "operator")]
 pub enum ConditionDef {
     /// True if the value in context exactly matches the provided JSON value.
-    Equals { key: String, value: serde_json::Value },
-    
+    Equals {
+        key: String,
+        value: serde_json::Value,
+    },
+
     /// True if the value in context does not match, or is missing.
-    NotEquals { key: String, value: serde_json::Value },
-    
+    NotEquals {
+        key: String,
+        value: serde_json::Value,
+    },
+
     /// True if the numeric value in context is strictly greater.
     GreaterThan { key: String, value: f64 },
-    
+
     /// True if the numeric value in context is strictly less.
     LessThan { key: String, value: f64 },
-    
+
     /// True if all sub-conditions are true.
     And { conditions: Vec<ConditionDef> },
-    
+
     /// True if any sub-condition is true.
     Or { conditions: Vec<ConditionDef> },
-    
+
     /// True if the sub-condition is false.
     Not { condition: Box<ConditionDef> },
 }
@@ -72,15 +78,9 @@ impl ConditionDef {
                     false
                 }
             }
-            ConditionDef::And { conditions } => {
-                conditions.iter().all(|c| c.evaluate(ctx))
-            }
-            ConditionDef::Or { conditions } => {
-                conditions.iter().any(|c| c.evaluate(ctx))
-            }
-            ConditionDef::Not { condition } => {
-                !condition.evaluate(ctx)
-            }
+            ConditionDef::And { conditions } => conditions.iter().all(|c| c.evaluate(ctx)),
+            ConditionDef::Or { conditions } => conditions.iter().any(|c| c.evaluate(ctx)),
+            ConditionDef::Not { condition } => !condition.evaluate(ctx),
         }
     }
 }

@@ -6,11 +6,10 @@
 
 use crate::context::StatContext;
 use crate::error::StatError;
+use crate::numeric::StatNumeric;
 use crate::resolver::StatResolver;
 use crate::stat_id::StatId;
-use crate::numeric::StatNumeric;
 use serde::{Deserialize, Serialize};
-
 
 /// Savaş sırasında okunacak verinin kaynağı.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -25,14 +24,9 @@ pub enum CombatTarget {
 #[serde(tag = "type")]
 pub enum CombatExpression {
     /// Bir stat değerini okur.
-    Stat {
-        target: CombatTarget,
-        stat: String,
-    },
+    Stat { target: CombatTarget, stat: String },
     /// Sabit bir değer.
-    Constant {
-        value: f64,
-    },
+    Constant { value: f64 },
     /// İki ifadeyi toplar.
     Add {
         left: Box<CombatExpression>,
@@ -123,22 +117,71 @@ impl CombatEngine {
             }
             CombatExpression::Constant { value } => Ok(*value),
             CombatExpression::Add { left, right } => {
-                let l = Self::eval_expr(left, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
-                let r = Self::eval_expr(right, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
+                let l = Self::eval_expr(
+                    left,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
+                let r = Self::eval_expr(
+                    right,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
                 Ok(l + r)
             }
             CombatExpression::Subtract { left, right } => {
-                let l = Self::eval_expr(left, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
-                let r = Self::eval_expr(right, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
+                let l = Self::eval_expr(
+                    left,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
+                let r = Self::eval_expr(
+                    right,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
                 Ok(l - r)
             }
             CombatExpression::Multiply { left, right } => {
-                let l = Self::eval_expr(left, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
-                let r = Self::eval_expr(right, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
+                let l = Self::eval_expr(
+                    left,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
+                let r = Self::eval_expr(
+                    right,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
                 Ok(l * r)
             }
             CombatExpression::Clamp { min, max, expr } => {
-                let mut val = Self::eval_expr(expr, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)?;
+                let mut val = Self::eval_expr(
+                    expr,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                )?;
                 if let Some(m) = min {
                     val = val.max(*m);
                 }
@@ -162,9 +205,23 @@ impl CombatEngine {
                 )?;
                 let roll = rng();
                 if roll <= chance {
-                    Self::eval_expr(success_expr, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)
+                    Self::eval_expr(
+                        success_expr,
+                        attacker_resolver,
+                        attacker_ctx,
+                        defender_resolver,
+                        defender_ctx,
+                        rng,
+                    )
                 } else {
-                    Self::eval_expr(fail_expr, attacker_resolver, attacker_ctx, defender_resolver, defender_ctx, rng)
+                    Self::eval_expr(
+                        fail_expr,
+                        attacker_resolver,
+                        attacker_ctx,
+                        defender_resolver,
+                        defender_ctx,
+                        rng,
+                    )
                 }
             }
         }
@@ -254,19 +311,25 @@ mod tests {
         // Scenario 1: Dodge (roll = 0.05 <= 0.10)
         let mut roll_seq = vec![0.05].into_iter();
         let mut rng = || roll_seq.next().unwrap();
-        let dmg_dodge = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng).unwrap();
+        let dmg_dodge =
+            CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng)
+                .unwrap();
         assert_eq!(dmg_dodge, 0.0);
 
         // Scenario 2: Hit but no crit (roll 1 = 0.50 > 0.10 Dodge, roll 2 = 0.50 > 0.20 Crit)
         let mut roll_seq = vec![0.50, 0.50].into_iter();
         let mut rng = || roll_seq.next().unwrap();
-        let dmg_normal = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng).unwrap();
+        let dmg_normal =
+            CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng)
+                .unwrap();
         assert_eq!(dmg_normal, 100.0);
 
         // Scenario 3: Hit and crit (roll 1 = 0.50 > 0.10 Dodge, roll 2 = 0.15 <= 0.20 Crit)
         let mut roll_seq = vec![0.50, 0.15].into_iter();
         let mut rng = || roll_seq.next().unwrap();
-        let dmg_crit = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng).unwrap();
+        let dmg_crit =
+            CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng)
+                .unwrap();
         assert_eq!(dmg_crit, 200.0);
     }
 }

@@ -38,7 +38,8 @@ fn test_simple_damage_calculation() {
     let ctx = StatContext::new();
     let mut rng = || 0.0;
 
-    let dmg = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng).unwrap();
+    let dmg = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng)
+        .unwrap();
     assert_eq!(dmg, 300.0); // 500 - 200
 }
 
@@ -66,14 +67,30 @@ fn test_critical_hit_multiplier() {
     attacker.register_source(StatId::from("CRIT_CHANCE"), Box::new(ConstantSource(0.5)));
 
     let ctx = StatContext::new();
-    
+
     // Simulate successful crit
     let mut rng_success = || 0.1; // 0.1 < 0.5 -> success
-    let dmg_success = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng_success).unwrap();
+    let dmg_success = CombatEngine::evaluate(
+        &formula,
+        &mut attacker,
+        &ctx,
+        &mut defender,
+        &ctx,
+        &mut rng_success,
+    )
+    .unwrap();
     assert_eq!(dmg_success, 200.0);
-    
+
     // Simulate failed crit
     let mut rng_fail = || 0.9; // 0.9 > 0.5 -> fail
-    let dmg_fail = CombatEngine::evaluate(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng_fail).unwrap();
+    let dmg_fail = CombatEngine::evaluate(
+        &formula,
+        &mut attacker,
+        &ctx,
+        &mut defender,
+        &ctx,
+        &mut rng_fail,
+    )
+    .unwrap();
     assert_eq!(dmg_fail, 100.0);
 }

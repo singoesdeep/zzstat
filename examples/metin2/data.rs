@@ -20,10 +20,10 @@ impl WeaponDef {
         } else {
             &self.attack_values
         };
-        
+
         let min_att = vals[2].as_f64().unwrap_or(0.0);
         let max_att = vals[3].as_f64().unwrap_or(0.0);
-        
+
         let growth = self.growth[upgrade];
         (min_att + growth, max_att + growth)
     }
@@ -40,7 +40,7 @@ impl MonsterDef {
     pub fn level(&self) -> f64 {
         self.data[3].as_f64().unwrap_or(1.0)
     }
-    
+
     pub fn defense(&self) -> f64 {
         self.data[10].as_f64().unwrap_or(0.0) // Index 10 is typically defense in monsterData (from Calculator.js)
     }
@@ -65,24 +65,24 @@ pub struct Metin2Data {
 impl Metin2Data {
     pub fn load(base_dir: impl AsRef<Path>) -> Result<Self, Box<dyn std::error::Error>> {
         let base = base_dir.as_ref();
-        
+
         let w_str = fs::read_to_string(base.join("weapons.json"))?;
         let weapons_list: Vec<WeaponDef> = serde_json::from_str(&w_str)?;
         let mut weapons = HashMap::new();
         for w in weapons_list {
             weapons.insert(w.id, w);
         }
-        
+
         let m_str = fs::read_to_string(base.join("monsters.json"))?;
         let monsters_list: Vec<MonsterDef> = serde_json::from_str(&m_str)?;
         let mut monsters = HashMap::new();
         for m in monsters_list {
             monsters.insert(m.id, m);
         }
-        
+
         let c_str = fs::read_to_string(base.join("constants.json"))?;
         let constants: ConstantsDef = serde_json::from_str(&c_str)?;
-        
+
         Ok(Self {
             weapons,
             monsters,

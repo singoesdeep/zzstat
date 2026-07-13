@@ -372,7 +372,7 @@ mod tests {
         // but whose final result fits in i64 (max ~9.22 * 10^18)
         let a = FixedPoint::new(300_000_000_000, 4); // 30,000,000.0000
         let b = FixedPoint::new(30_000_000_000, 4); // 3,000,000.0000
-        let result = a * b; 
+        let result = a * b;
         assert_eq!(result.value(), 900_000_000_000_000_000);
     }
 

@@ -1,5 +1,5 @@
 //! JSON Template Loader module.
-//! 
+//!
 //! Provides data structures for defining stats and transforms via JSON.
 //! This allows for data-driven stat definitions instead of hardcoding them in Rust.
 
@@ -13,8 +13,8 @@ use crate::transform::{
 };
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
 use crate::numeric::StatNumeric;
+use std::collections::HashMap;
 
 /// A template for a full set of stats and transforms.
 ///
@@ -164,7 +164,7 @@ impl StatTemplate {
         // 2. Register transforms
         for t in &self.transforms {
             let stat_id = StatId::from(t.stat.as_str());
-            
+
             let phase = match t.phase {
                 TransformPhaseDef::Additive => TransformPhase::Additive,
                 TransformPhaseDef::Multiplicative => TransformPhase::Multiplicative,
@@ -203,9 +203,9 @@ impl StatTemplate {
 
 #[cfg(test)]
 mod tests {
-    use crate::numeric::StatNumeric;
     use super::*;
     use crate::context::StatContext;
+    use crate::numeric::StatNumeric;
 
     #[test]
     fn test_template_deserialization_and_resolve() {
@@ -286,7 +286,7 @@ mod tests {
 
         let template: StatTemplate = serde_json::from_str(json).unwrap();
         let mut resolver = template.build_resolver().unwrap();
-        
+
         let mut context = StatContext::new();
         let stat_id = StatId::from("ATK");
 

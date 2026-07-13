@@ -552,7 +552,7 @@ fn test_conditional_buff_scenario() {
 
     let mut context_normal = StatContext::new();
     context_normal.set("is_enraged", false);
-    
+
     let mut context_enraged = StatContext::new();
     context_enraged.set("is_enraged", true);
 

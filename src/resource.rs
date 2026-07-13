@@ -4,10 +4,10 @@
 //! along with Damage over Time (DoT) and Heal over Time (HoT) effects.
 
 use crate::context::StatContext;
+use crate::numeric::StatNumeric;
 use crate::resolver::StatResolver;
 use crate::stat_id::StatId;
 use serde::{Deserialize, Serialize};
-use crate::numeric::StatNumeric;
 
 /// Condition for a threshold trigger.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -62,11 +62,7 @@ pub struct ResourcePool {
 
 impl ResourcePool {
     /// Creates a new ResourcePool starting at full capacity based on the current resolver state.
-    pub fn new(
-        max_stat_id: StatId,
-        resolver: &mut StatResolver,
-        context: &StatContext,
-    ) -> Self {
+    pub fn new(max_stat_id: StatId, resolver: &mut StatResolver, context: &StatContext) -> Self {
         let max_val = resolver
             .resolve(&max_stat_id, context)
             .map(|r| r.value.to_f64())
@@ -92,22 +88,36 @@ impl ResourcePool {
 
     /// Explicitly applies direct damage to the resource.
     /// Returns any events triggered by the change.
-    pub fn apply_damage(&mut self, amount: f64, resolver: &mut StatResolver, context: &StatContext) -> Vec<ResourceEvent> {
+    pub fn apply_damage(
+        &mut self,
+        amount: f64,
+        resolver: &mut StatResolver,
+        context: &StatContext,
+    ) -> Vec<ResourceEvent> {
         // Damage reduces the value, so delta is negative
         self.change_value(-amount, resolver, context)
     }
 
     /// Explicitly applies direct healing to the resource.
     /// Returns any events triggered by the change.
-    pub fn apply_heal(&mut self, amount: f64, resolver: &mut StatResolver, context: &StatContext) -> Vec<ResourceEvent> {
+    pub fn apply_heal(
+        &mut self,
+        amount: f64,
+        resolver: &mut StatResolver,
+        context: &StatContext,
+    ) -> Vec<ResourceEvent> {
         self.change_value(amount, resolver, context)
     }
 
     /// Advances the pool by one tick, applying active effects.
     /// Returns any events triggered by the state change.
-    pub fn tick(&mut self, resolver: &mut StatResolver, context: &StatContext) -> Vec<ResourceEvent> {
+    pub fn tick(
+        &mut self,
+        resolver: &mut StatResolver,
+        context: &StatContext,
+    ) -> Vec<ResourceEvent> {
         let mut total_change = 0.0;
-        
+
         self.active_effects.retain_mut(|effect| {
             if effect.ticks_remaining > 0 {
                 total_change += effect.amount_per_tick;
@@ -128,7 +138,12 @@ impl ResourcePool {
     }
 
     /// Internal function to apply a delta and check triggers.
-    fn change_value(&mut self, delta: f64, resolver: &mut StatResolver, context: &StatContext) -> Vec<ResourceEvent> {
+    fn change_value(
+        &mut self,
+        delta: f64,
+        resolver: &mut StatResolver,
+        context: &StatContext,
+    ) -> Vec<ResourceEvent> {
         let max_val = resolver
             .resolve(&self.max_stat_id, context)
             .map(|r| r.value.to_f64())
@@ -139,7 +154,11 @@ impl ResourcePool {
     }
 
     /// Evaluates all triggers against the current state.
-    fn check_triggers(&self, resolver: &mut StatResolver, context: &StatContext) -> Vec<ResourceEvent> {
+    fn check_triggers(
+        &self,
+        resolver: &mut StatResolver,
+        context: &StatContext,
+    ) -> Vec<ResourceEvent> {
         let mut events = Vec::new();
         let max_val = resolver
             .resolve(&self.max_stat_id, context)
@@ -250,7 +269,7 @@ mod tests {
         // Tick 3 (100 - capped)
         let events = pool.tick(&mut resolver, &context);
         assert_eq!(pool.current_value, 100.0);
-        
+
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].event_name, "FULLY_HEALED");
     }

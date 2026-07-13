@@ -441,8 +441,8 @@ impl StatResolver {
         if self.cache.is_empty() {
             return;
         }
-        
-        // Build the current graph to find dependents. 
+
+        // Build the current graph to find dependents.
         if let Ok(graph) = self.build_graph() {
             let dependents = graph.get_all_dependents(stat_id);
             for dep in dependents {
@@ -513,10 +513,6 @@ impl StatResolver {
     pub fn get_breakdown(&self, stat_id: &StatId) -> Option<&ResolvedStat> {
         self.cache.get(stat_id)
     }
-
-
-
-
 
     /// Internal method to resolve stats based on scope.
     ///
@@ -1118,7 +1114,7 @@ mod tests {
         );
 
         let context = StatContext::new();
-        
+
         // Initial resolution
         let atk_resolved = resolver.resolve(&atk_id, &context).unwrap();
         assert_eq!(atk_resolved.value, StatValue::from_f64(20.0));

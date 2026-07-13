@@ -46,7 +46,11 @@ pub struct ActiveStatus {
 
 impl ActiveStatus {
     pub fn new(effect: StatusEffect, duration_ticks: Option<u32>, stacks: u32) -> Self {
-        let compiled = effect.bonuses.iter().map(compile_bonus::<crate::numeric::StatValue>).collect();
+        let compiled = effect
+            .bonuses
+            .iter()
+            .map(compile_bonus::<crate::numeric::StatValue>)
+            .collect();
         Self {
             effect,
             current_stacks: stacks,
@@ -82,15 +86,20 @@ impl StatusManager {
     /// Adds or updates a status effect.
     pub fn add_status(&mut self, effect: StatusEffect, duration_ticks: Option<u32>, stacks: u32) {
         let effect_id = effect.id.clone();
-        
+
         if effect.stack_behavior != StackBehavior::Independent {
-            if let Some(existing) = self.active_statuses.iter_mut().find(|s| s.effect.id == effect_id) {
+            if let Some(existing) = self
+                .active_statuses
+                .iter_mut()
+                .find(|s| s.effect.id == effect_id)
+            {
                 match existing.effect.stack_behavior {
                     StackBehavior::Refresh => {
                         existing.duration_ticks = duration_ticks;
                     }
                     StackBehavior::Accumulate { reset_duration } => {
-                        existing.current_stacks = (existing.current_stacks + stacks).min(existing.effect.max_stacks);
+                        existing.current_stacks =
+                            (existing.current_stacks + stacks).min(existing.effect.max_stacks);
                         if reset_duration {
                             existing.duration_ticks = duration_ticks;
                         }
@@ -101,10 +110,11 @@ impl StatusManager {
                 return;
             }
         }
-        
+
         // If independent or not found, add as new
         let stacks = stacks.min(effect.max_stacks).max(1);
-        self.active_statuses.push(ActiveStatus::new(effect, duration_ticks, stacks));
+        self.active_statuses
+            .push(ActiveStatus::new(effect, duration_ticks, stacks));
         self.dirty = true;
     }
 
@@ -112,7 +122,7 @@ impl StatusManager {
     /// Removes expired statuses.
     pub fn tick(&mut self) {
         let mut expired = false;
-        
+
         self.active_statuses.retain_mut(|status| {
             if let Some(ref mut ticks) = status.duration_ticks {
                 if *ticks > 0 {
@@ -147,30 +157,33 @@ impl StatusManager {
 
     /// Returns a `StatResolver` with all active statuses applied as overlays.
     /// Reuses the cached resolver if no statuses have changed.
-    pub fn get_active_resolver<'a>(&'a mut self, base_resolver: &StatResolver) -> &'a mut StatResolver {
+    pub fn get_active_resolver<'a>(
+        &'a mut self,
+        base_resolver: &StatResolver,
+    ) -> &'a mut StatResolver {
         if self.dirty || self.active_resolver.is_none() {
             let mut fork = base_resolver.fork();
-            
+
             for status in &self.active_statuses {
                 // Apply bonuses multiple times based on stacks
                 for _ in 0..status.current_stacks {
                     apply_compiled_bonuses(&mut fork, &status.compiled_bonuses);
                 }
             }
-            
+
             self.active_resolver = Some(fork);
             self.dirty = false;
         }
-        
+
         self.active_resolver.as_mut().unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::numeric::StatNumeric;
     use super::*;
     use crate::context::StatContext;
+    use crate::numeric::StatNumeric;
     use crate::source::ConstantSource;
     use crate::stat_id::StatId;
 
@@ -184,14 +197,19 @@ mod tests {
 
         // Check base
         let context = StatContext::new();
-        let atk = status_manager.get_active_resolver(&base_resolver).resolve(&atk_id, &context).unwrap();
+        let atk = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&atk_id, &context)
+            .unwrap();
         assert_eq!(atk.value.to_f64(), 100.0);
 
         // Add buff: +50 ATK
         let buff = StatusEffect {
             id: "BUFF_WARCRY".to_string(),
             name: "Warcry".to_string(),
-            bonuses: vec![Bonus::add(atk_id.clone()).flat(50.0).in_phase(crate::transform::TransformPhase::Additive)],
+            bonuses: vec![Bonus::add(atk_id.clone())
+                .flat(50.0)
+                .in_phase(crate::transform::TransformPhase::Additive)],
             max_stacks: 1,
             stack_behavior: StackBehavior::Refresh,
         };
@@ -199,17 +217,26 @@ mod tests {
         status_manager.add_status(buff, Some(2), 1); // Lasts 2 ticks
 
         // Check buffed
-        let atk = status_manager.get_active_resolver(&base_resolver).resolve(&atk_id, &context).unwrap();
+        let atk = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&atk_id, &context)
+            .unwrap();
         assert_eq!(atk.value.to_f64(), 150.0);
 
         // Tick 1
         status_manager.tick();
-        let atk = status_manager.get_active_resolver(&base_resolver).resolve(&atk_id, &context).unwrap();
+        let atk = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&atk_id, &context)
+            .unwrap();
         assert_eq!(atk.value.to_f64(), 150.0); // Still active
 
         // Tick 2 (expires)
         status_manager.tick();
-        let atk = status_manager.get_active_resolver(&base_resolver).resolve(&atk_id, &context).unwrap();
+        let atk = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&atk_id, &context)
+            .unwrap();
         assert_eq!(atk.value.to_f64(), 100.0); // Back to normal
     }
 
@@ -225,19 +252,29 @@ mod tests {
         let debuff = StatusEffect {
             id: "SUNDER_ARMOR".to_string(),
             name: "Sunder Armor".to_string(),
-            bonuses: vec![Bonus::add(def_id.clone()).flat(-10.0).in_phase(crate::transform::TransformPhase::Additive)],
+            bonuses: vec![Bonus::add(def_id.clone())
+                .flat(-10.0)
+                .in_phase(crate::transform::TransformPhase::Additive)],
             max_stacks: 5,
-            stack_behavior: StackBehavior::Accumulate { reset_duration: true },
+            stack_behavior: StackBehavior::Accumulate {
+                reset_duration: true,
+            },
         };
 
         // Stack 1
         status_manager.add_status(debuff.clone(), Some(3), 1);
-        let def = status_manager.get_active_resolver(&base_resolver).resolve(&def_id, &context).unwrap();
+        let def = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&def_id, &context)
+            .unwrap();
         assert_eq!(def.value.to_f64(), 40.0);
 
         // Stack 2
         status_manager.add_status(debuff.clone(), Some(3), 1);
-        let def = status_manager.get_active_resolver(&base_resolver).resolve(&def_id, &context).unwrap();
+        let def = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&def_id, &context)
+            .unwrap();
         assert_eq!(def.value.to_f64(), 30.0); // -20 total
     }
 }

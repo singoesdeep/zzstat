@@ -5,9 +5,9 @@
 //! evaluate dynamic combat stances (e.g., DEFENSIVE).
 
 use zzstat::context::StatContext;
+use zzstat::source::ConstantSource;
 use zzstat::stat_id::StatId;
 use zzstat::template::StatTemplate;
-use zzstat::source::ConstantSource;
 use zzstat::StatNumeric;
 
 fn main() {

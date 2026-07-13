@@ -112,16 +112,18 @@ mod tests {
     fn test_conditional_transform_applied() {
         let mut context = StatContext::new();
         context.set("is_night", true);
-        
+
         let inner = Box::new(MultiplicativeTransform::new(2.0));
         let transform = ConditionalTransform::new(
             |ctx| ctx.get::<bool>("is_night").unwrap_or(false),
             inner,
             "night bonus",
         );
-        
+
         let deps = FxHashMap::default();
-        let result = transform.apply(StatValue::from_f64(10.0), &deps, &context).unwrap();
+        let result = transform
+            .apply(StatValue::from_f64(10.0), &deps, &context)
+            .unwrap();
         assert_eq!(result.to_f64(), 20.0);
     }
 
@@ -129,17 +131,18 @@ mod tests {
     fn test_conditional_transform_ignored() {
         let mut context = StatContext::new();
         context.set("is_night", false);
-        
+
         let inner = Box::new(MultiplicativeTransform::new(2.0));
         let transform = ConditionalTransform::new(
             |ctx| ctx.get::<bool>("is_night").unwrap_or(false),
             inner,
             "night bonus",
         );
-        
+
         let deps = FxHashMap::default();
-        let result = transform.apply(StatValue::from_f64(10.0), &deps, &context).unwrap();
+        let result = transform
+            .apply(StatValue::from_f64(10.0), &deps, &context)
+            .unwrap();
         assert_eq!(result.to_f64(), 10.0);
     }
 }
-

@@ -1,13 +1,13 @@
 //! Example 02: Resource Pool (HP), Time Effects (DoT), and Triggers
 //!
-//! Demonstrates the stateful side of `zzstat`. How to track an entity's 
+//! Demonstrates the stateful side of `zzstat`. How to track an entity's
 //! Current HP, apply Poison (Damage over Time), and handle death triggers.
 
 use zzstat::context::StatContext;
 use zzstat::resolver::StatResolver;
-use zzstat::stat_id::StatId;
+use zzstat::resource::{ResourcePool, ThresholdTrigger, TimeEffect, TriggerCondition};
 use zzstat::source::ConstantSource;
-use zzstat::resource::{ResourcePool, TimeEffect, ThresholdTrigger, TriggerCondition};
+use zzstat::stat_id::StatId;
 
 fn main() {
     let mut resolver = StatResolver::new();
@@ -39,7 +39,7 @@ fn main() {
     for tick in 1..=4 {
         println!("--- Tick {} ---", tick);
         let events = hp_pool.tick(&mut resolver, &ctx);
-        
+
         println!("Current HP: {}", hp_pool.current_value);
 
         for event in events {
@@ -51,7 +51,7 @@ fn main() {
     println!("--- Monster hits for 50 damage! ---");
     let events = hp_pool.apply_damage(50.0, &mut resolver, &ctx);
     println!("Current HP: {}", hp_pool.current_value);
-    
+
     for event in events {
         println!(">>> TRIGGER FIRED: {} <<<", event.event_name);
     }

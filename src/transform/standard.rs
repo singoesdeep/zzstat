@@ -1,8 +1,8 @@
 use crate::context::StatContext;
 use crate::error::StatError;
-use crate::numeric::{StatValue, StatNumeric};
+use crate::numeric::{StatNumeric, StatValue};
 use crate::stat_id::StatId;
-use crate::transform::core::{TransformPhase, StatTransform, ClampBounds};
+use crate::transform::core::{ClampBounds, StatTransform, TransformPhase};
 use rustc_hash::FxHashMap;
 
 /// A multiplicative transform (percentage modifier).
@@ -486,19 +486,21 @@ impl StatTransform for ScalingTransform {
 
 #[cfg(test)]
 mod tests {
-    use crate::numeric::StatNumeric;
     use super::*;
+    use crate::numeric::StatNumeric;
 
     #[test]
     fn test_scaling_transform() {
         let str_id = StatId::from("STR");
         let transform = ScalingTransform::new(str_id.clone(), 2.5);
-        
+
         let mut deps = FxHashMap::default();
         deps.insert(str_id.clone(), StatValue::from_f64(10.0));
-        
+
         let context = StatContext::new();
-        let result = transform.apply(StatValue::from_f64(100.0), &deps, &context).unwrap();
+        let result = transform
+            .apply(StatValue::from_f64(100.0), &deps, &context)
+            .unwrap();
         assert_eq!(result.to_f64(), 125.0);
     }
 
@@ -506,12 +508,11 @@ mod tests {
     fn test_scaling_transform_missing_dep() {
         let str_id = StatId::from("STR");
         let transform = ScalingTransform::new(str_id.clone(), 2.5);
-        
+
         let deps = FxHashMap::default(); // missing STR
         let context = StatContext::new();
-        
+
         let err = transform.apply(StatValue::from_f64(100.0), &deps, &context);
         assert!(matches!(err, Err(StatError::MissingDependency(_))));
     }
 }
-

@@ -5,8 +5,8 @@
 //! for conditional calculations. The core does not interpret this data;
 //! it's simply passed through.
 
-use serde::{Deserialize, Serialize};
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 
 /// Context information for stat resolution.
 ///

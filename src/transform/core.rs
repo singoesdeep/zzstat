@@ -3,7 +3,7 @@ use crate::error::StatError;
 use crate::numeric::StatValue;
 use crate::stat_id::StatId;
 use rustc_hash::FxHashMap;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Phase for transform application order.
 ///
@@ -305,8 +305,8 @@ pub trait StatTransform: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use crate::numeric::StatNumeric;
     use super::*;
+    use crate::numeric::StatNumeric;
 
     #[test]
     fn test_transform_phase_values() {
@@ -325,16 +325,22 @@ mod tests {
             StackRule::Override,
             StackRule::Additive,
             StackRule::Multiplicative,
-            StackRule::Diminishing { k: StatValue::from_f64(1.0) },
+            StackRule::Diminishing {
+                k: StatValue::from_f64(1.0),
+            },
             StackRule::Min,
             StackRule::Max,
             StackRule::MinMax,
         ];
-        
+
         // Ensure they are strictly ordered according to their priority
         for i in 0..rules.len() - 1 {
-            assert!(rules[i] < rules[i+1], "Rule {:?} should be less than {:?}", rules[i], rules[i+1]);
+            assert!(
+                rules[i] < rules[i + 1],
+                "Rule {:?} should be less than {:?}",
+                rules[i],
+                rules[i + 1]
+            );
         }
     }
 }
-

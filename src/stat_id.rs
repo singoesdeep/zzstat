@@ -52,8 +52,6 @@ impl<'de> Deserialize<'de> for StatId {
 }
 
 impl StatId {
-
-
     /// Get the string representation of this `StatId`.
     ///
     /// # Examples

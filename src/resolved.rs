@@ -123,9 +123,8 @@ impl ResolvedStat {
 
 #[cfg(test)]
 mod tests {
-    use crate::numeric::StatNumeric;
     use super::*;
-
+    use crate::numeric::StatNumeric;
 
     #[test]
     fn test_resolved_stat_creation() {

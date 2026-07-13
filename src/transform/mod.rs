@@ -4,21 +4,21 @@
 //! Transforms can read other stats (dependencies) and must declare
 //! them explicitly via `depends_on()`.
 
+pub mod conditional;
 pub mod core;
 pub mod standard;
-pub mod conditional;
 
+pub use conditional::*;
 pub use core::*;
 pub use standard::*;
-pub use conditional::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustc_hash::FxHashMap;
-    use crate::numeric::{StatNumeric, StatValue};
     use crate::context::StatContext;
+    use crate::numeric::{StatNumeric, StatValue};
     use crate::stat_id::StatId;
+    use rustc_hash::FxHashMap;
 
     #[test]
     fn test_multiplicative_transform() {
