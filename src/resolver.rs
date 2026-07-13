@@ -605,6 +605,87 @@ impl StatResolver {
         Ok(graph)
     }
 
+    /// Export the stat dependency graph and active modifiers as a Mermaid JS flowchart.
+    ///
+    /// This generates a `graph TD` Mermaid diagram that visualizes:
+    /// - All registered stats as nodes
+    /// - Dependency relationships (arrows from dependency to dependent stat)
+    /// - Active sources contributing to the base value
+    /// - Active transforms modifying the stat
+    ///
+    /// # Returns
+    ///
+    /// A string containing the Mermaid diagram syntax.
+    pub fn export_mermaid(&self) -> String {
+        let mut out = String::new();
+        out.push_str("graph TD\n");
+
+        let stat_ids = self.registry.get_all_stat_ids();
+
+        // Add all stats as main nodes
+        for stat_id in &stat_ids {
+            out.push_str(&format!("    {}[(\"{}\")]\n", stat_id, stat_id));
+
+            // Add sources
+            let mut source_count = 0;
+            if let Some(sources) = self.registry.base.sources.get(stat_id) {
+                for src in sources {
+                    let src_id = format!("{}_src_b{}", stat_id, source_count);
+                    let desc = format!("{:?}", src).replace("\"", "'");
+                    out.push_str(&format!("    {}>\"{}\"]\n", src_id, desc));
+                    out.push_str(&format!("    {} -.-> {}\n", src_id, stat_id));
+                    source_count += 1;
+                }
+            }
+            if let Some(sources) = self.registry.overlay.sources.get(stat_id) {
+                for src in sources {
+                    let src_id = format!("{}_src_o{}", stat_id, source_count);
+                    let desc = format!("{:?}", src).replace("\"", "'");
+                    out.push_str(&format!("    {}>\"{}\"]\n", src_id, desc));
+                    out.push_str(&format!("    {} -.-> {}\n", src_id, stat_id));
+                    source_count += 1;
+                }
+            }
+
+            // Add transforms
+            let mut transform_count = 0;
+            if let Some(transforms) = self.registry.base.transforms.get(stat_id) {
+                for entry in transforms {
+                    let tr_id = format!("{}_tr_b{}", stat_id, transform_count);
+                    let desc = entry.transform.description().replace("\"", "'");
+                    out.push_str(&format!("    {}[/\"{}\"/]\n", tr_id, desc));
+                    out.push_str(&format!("    {} -.-> {}\n", tr_id, stat_id));
+                    transform_count += 1;
+                }
+            }
+            if let Some(transforms) = self.registry.overlay.transforms.get(stat_id) {
+                for entry in transforms {
+                    let tr_id = format!("{}_tr_o{}", stat_id, transform_count);
+                    let desc = entry.transform.description().replace("\"", "'");
+                    out.push_str(&format!("    {}[/\"{}\"/]\n", tr_id, desc));
+                    out.push_str(&format!("    {} -.-> {}\n", tr_id, stat_id));
+                    transform_count += 1;
+                }
+            }
+        }
+
+        // Add dependency edges
+        if let Ok(graph) = self.build_graph() {
+            for stat_id in graph.nodes() {
+                if let Some(transforms) = self.registry.get_transforms(&stat_id) {
+                    for entry in transforms {
+                        for dep in entry.transform.depends_on() {
+                            // dep is required for stat_id. Thus data flows from dep -> stat_id
+                            out.push_str(&format!("    {} ==> {}\n", dep, stat_id));
+                        }
+                    }
+                }
+            }
+        }
+
+        out
+    }
+
     /// Internal method to resolve a single stat.
     fn resolve_stat_internal(
         &self,

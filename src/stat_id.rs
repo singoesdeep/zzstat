@@ -19,8 +19,8 @@ use std::sync::Arc;
 /// ```rust
 /// use zzstat::StatId;
 ///
-/// let hp = StatId::from_str("HP");
-/// let atk = StatId::from_str("ATK");
+/// let hp = StatId::from("HP");
+/// let atk = StatId::from("ATK");
 ///
 /// // Can be created from string slices or owned strings
 /// let hp2: StatId = "HP".into();
@@ -59,7 +59,7 @@ impl StatId {
     /// ```rust
     /// use zzstat::StatId;
     ///
-    /// let stat_id = StatId::from_str("ATK");
+    /// let stat_id = StatId::from("ATK");
     /// assert_eq!(stat_id.as_str(), "ATK");
     /// ```
     pub fn as_str(&self) -> &str {

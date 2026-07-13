@@ -1,6 +1,6 @@
 [package]
 name = "zzstat"
-version = "0.1.8"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "A deterministic, hardcode-free stat calculation engine designed for MMORPGs"

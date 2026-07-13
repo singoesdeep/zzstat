@@ -28,7 +28,7 @@ use rustc_hash::FxHashMap;
 /// let value = source.get_value(&stat_id, &context);
 /// assert_eq!(value, 100.0);
 /// ```
-pub trait StatSource: Send + Sync {
+pub trait StatSource: Send + Sync + std::fmt::Debug {
     /// Get the value for a stat from this source.
     ///
     /// # Arguments

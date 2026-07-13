@@ -93,6 +93,30 @@ Evaluate complex attack commands defined entirely in JSON. The `CombatEngine` re
 }
 ```
 
+### 5. Graph Visualization (Mermaid.js)
+Export your entire stat dependency tree, including all active bonuses and active transforms, into a `graph TD` Mermaid string natively. Perfect for generating live documentation for your game's mechanics!
+
+```rust
+let mermaid_code = resolver.export_mermaid();
+```
+
+Generates output that renders directly in GitHub, Notion, and Mermaid Live Editor:
+```mermaid
+graph TD
+    DEX[("DEX")]
+    DEX_src_b0>"ConstantSource(30.0)"]
+    DEX_src_b0 -.-> DEX
+    ATK[("ATK")]
+    ATK_tr_b0[/"scale(STR, 2.00)"/]
+    ATK_tr_b0 -.-> ATK
+    DPS[("DPS")]
+    STR[("STR")]
+    STR_src_b0>"ConstantSource(50.0)"]
+    STR_src_b0 -.-> STR
+    STR ==> ATK
+    ATK ==> DPS
+```
+
 ---
 
 ## ⚡ Performance & Determinism
@@ -109,6 +133,7 @@ Explore the `/examples` directory for comprehensive guides on how to use `zzstat
 - `02_resource_pool.rs`
 - `03_status_effects.rs`
 - `04_combat_engine.rs`
+- `05_graph_export.rs`
 - `metin2/` (Full MMORPG Damage Simulator)
 
 Run them with:
