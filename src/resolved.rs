@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// use zzstat::ResolvedStat;
 /// use zzstat::StatId;
 ///
-/// let mut resolved = ResolvedStat::new(StatId::from_str("HP"), 150.0);
+/// let mut resolved = ResolvedStat::new(StatId::from("HP"), 150.0);
 /// resolved.add_source("Base", 100.0);
 /// resolved.add_source("Item", 50.0);
 /// resolved.add_transform("Multiplier 1.5x", 150.0);
@@ -61,7 +61,7 @@ impl ResolvedStat {
     /// use zzstat::ResolvedStat;
     /// use zzstat::StatId;
     ///
-    /// let resolved = ResolvedStat::new(StatId::from_str("HP"), 100.0);
+    /// let resolved = ResolvedStat::new(StatId::from("HP"), 100.0);
     /// assert_eq!(resolved.value, 100.0);
     /// ```
     pub fn new(stat_id: StatId, value: StatValue) -> Self {
@@ -89,7 +89,7 @@ impl ResolvedStat {
     /// use zzstat::ResolvedStat;
     /// use zzstat::StatId;
     ///
-    /// let mut resolved = ResolvedStat::new(StatId::from_str("HP"), 150.0);
+    /// let mut resolved = ResolvedStat::new(StatId::from("HP"), 150.0);
     /// resolved.add_source("Base HP", 100.0);
     /// resolved.add_source("Item Bonus", 50.0);
     /// ```
@@ -113,7 +113,7 @@ impl ResolvedStat {
     /// use zzstat::ResolvedStat;
     /// use zzstat::StatId;
     ///
-    /// let mut resolved = ResolvedStat::new(StatId::from_str("ATK"), 150.0);
+    /// let mut resolved = ResolvedStat::new(StatId::from("ATK"), 150.0);
     /// resolved.add_transform("Multiplier 1.5x", 150.0);
     /// ```
     pub fn add_transform(&mut self, description: impl Into<String>, value: StatValue) {
@@ -123,12 +123,13 @@ impl ResolvedStat {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::numeric::StatNumeric;
+    use super::*;
+
 
     #[test]
     fn test_resolved_stat_creation() {
-        let stat = ResolvedStat::new(StatId::from_str("HP"), StatValue::from_f64(150.0));
+        let stat = ResolvedStat::new(StatId::from("HP"), StatValue::from_f64(150.0));
         assert_eq!(stat.stat_id.as_str(), "HP");
         assert_eq!(stat.value, StatValue::from_f64(150.0));
         assert!(stat.sources.is_empty());
@@ -137,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_resolved_stat_breakdown() {
-        let mut stat = ResolvedStat::new(StatId::from_str("ATK"), StatValue::from_f64(75.0));
+        let mut stat = ResolvedStat::new(StatId::from("ATK"), StatValue::from_f64(75.0));
         stat.add_source("Base", StatValue::from_f64(50.0));
         stat.add_source("Item", StatValue::from_f64(25.0));
         stat.add_transform("Multiplier 1.5x", StatValue::from_f64(75.0));
@@ -148,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_resolved_stat_multiple_sources() {
-        let mut stat = ResolvedStat::new(StatId::from_str("HP"), StatValue::from_f64(200.0));
+        let mut stat = ResolvedStat::new(StatId::from("HP"), StatValue::from_f64(200.0));
         stat.add_source("Base", StatValue::from_f64(100.0));
         stat.add_source("Item1", StatValue::from_f64(50.0));
         stat.add_source("Item2", StatValue::from_f64(50.0));
@@ -161,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_resolved_stat_multiple_transforms() {
-        let mut stat = ResolvedStat::new(StatId::from_str("ATK"), StatValue::from_f64(300.0));
+        let mut stat = ResolvedStat::new(StatId::from("ATK"), StatValue::from_f64(300.0));
         stat.add_transform("Multiplier 1.5x", StatValue::from_f64(150.0));
         stat.add_transform("Multiplier 2.0x", StatValue::from_f64(300.0));
 
@@ -172,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_resolved_stat_clone() {
-        let mut stat1 = ResolvedStat::new(StatId::from_str("HP"), StatValue::from_f64(150.0));
+        let mut stat1 = ResolvedStat::new(StatId::from("HP"), StatValue::from_f64(150.0));
         stat1.add_source("Base", StatValue::from_f64(100.0));
         stat1.add_source("Item", StatValue::from_f64(50.0));
         stat1.add_transform("Multiplier 1.5x", StatValue::from_f64(150.0));
@@ -187,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_resolved_stat_empty_breakdown() {
-        let stat = ResolvedStat::new(StatId::from_str("HP"), StatValue::from_f64(100.0));
+        let stat = ResolvedStat::new(StatId::from("HP"), StatValue::from_f64(100.0));
         assert!(stat.sources.is_empty());
         assert!(stat.transforms.is_empty());
     }

@@ -36,7 +36,7 @@
 //! use zzstat::transform::MultiplicativeTransform;
 //!
 //! let mut resolver = StatResolver::new();
-//! let hp_id = StatId::from_str("HP");
+//! let hp_id = StatId::from("HP");
 //!
 //! // Register sources (additive)
 //! resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
@@ -63,14 +63,20 @@
 //! - [`error`] - Error types
 
 pub mod bonus;
+pub mod combat;
+pub mod condition;
 pub mod context;
 pub mod error;
 pub mod graph;
+pub mod registry;
 pub mod numeric;
 pub mod resolved;
 pub mod resolver;
+pub mod resource;
 pub mod source;
 pub mod stat_id;
+pub mod status;
+pub mod template;
 pub mod transform;
 
 // Re-export main types for convenience

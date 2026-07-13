@@ -52,20 +52,7 @@ impl<'de> Deserialize<'de> for StatId {
 }
 
 impl StatId {
-    /// Create a new `StatId` from a string slice.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::StatId;
-    ///
-    /// let stat_id = StatId::from_str("HP");
-    /// assert_eq!(stat_id.as_str(), "HP");
-    /// ```
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Self {
-        Self(Arc::from(s))
-    }
+
 
     /// Get the string representation of this `StatId`.
     ///
@@ -84,7 +71,7 @@ impl StatId {
 
 impl From<&str> for StatId {
     fn from(s: &str) -> Self {
-        Self::from_str(s)
+        Self::from_str(s).unwrap()
     }
 }
 
@@ -114,8 +101,8 @@ mod tests {
 
     #[test]
     fn test_stat_id_creation() {
-        let id1 = StatId::from_str("HP");
-        let id2 = StatId::from_str("HP");
+        let id1 = StatId::from("HP");
+        let id2 = StatId::from("HP");
         assert_eq!(id1, id2);
         assert_eq!(id1.as_str(), "HP");
     }
@@ -128,8 +115,8 @@ mod tests {
 
     #[test]
     fn test_stat_id_ordering() {
-        let atk = StatId::from_str("ATK");
-        let hp = StatId::from_str("HP");
+        let atk = StatId::from("ATK");
+        let hp = StatId::from("HP");
         assert!(atk < hp); // "ATK" < "HP" lexicographically
     }
 }

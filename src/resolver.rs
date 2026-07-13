@@ -12,31 +12,9 @@ use crate::resolved::ResolvedStat;
 use crate::source::StatSource;
 use crate::stat_id::StatId;
 use crate::transform::{StackRule, StatTransform, TransformEntry, TransformPhase};
-use std::collections::HashMap;
-use std::sync::Arc;
+use rustc_hash::FxHashMap;
 
-/// Base data shared across resolver forks.
-///
-/// Contains the sources and transforms that are shared via copy-on-write.
-struct BaseData {
-    /// Multiple sources per stat (additive).
-    sources: HashMap<StatId, Vec<Box<dyn StatSource>>>,
-
-    /// Transform chain per stat.
-    transforms: HashMap<StatId, Vec<TransformEntry>>,
-}
-
-/// Overlay data for copy-on-write modifications.
-///
-/// When a resolver is forked, modifications are stored in the overlay.
-/// Reading checks overlay first, then falls back to base data.
-struct OverlayData {
-    /// Overlay sources (shadows base sources when present).
-    sources: HashMap<StatId, Vec<Box<dyn StatSource>>>,
-
-    /// Overlay transforms (shadows base transforms when present).
-    transforms: HashMap<StatId, Vec<TransformEntry>>,
-}
+use crate::registry::StatRegistry;
 
 /// Scope for stat resolution.
 ///
@@ -51,48 +29,18 @@ enum ResolveScope {
     Batch(Vec<StatId>),
 }
 
-/// The main stat resolver that manages sources, transforms, and resolution.
-///
-/// The resolver coordinates the entire stat resolution process:
-/// 1. Collects sources (additive)
-/// 2. Builds dependency graph from transforms
-/// 3. Detects cycles
-/// 4. Resolves stats in topological order
-/// 5. Caches results until invalidated
-///
-/// Supports copy-on-write forking for efficient resolver variations.
-///
-/// # Examples
-///
-/// ```rust
-/// use zzstat::*;
-/// use zzstat::source::ConstantSource;
-/// use zzstat::transform::MultiplicativeTransform;
-///
-/// let mut resolver = StatResolver::new();
-/// let hp_id = StatId::from_str("HP");
-///
-/// // Register sources
-/// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
-/// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(50.0)));
-///
-/// // Register transform
-/// resolver.register_transform(hp_id.clone(), Box::new(MultiplicativeTransform::new(1.5)));
-///
-/// // Resolve
-/// let context = StatContext::new();
-/// let resolved = resolver.resolve(&hp_id, &context).unwrap();
-/// assert_eq!(resolved.value.to_f64(), 225.0); // (100 + 50) * 1.5
-/// ```
-pub struct StatResolver {
-    /// Shared base data (sources and transforms).
-    base: Arc<BaseData>,
+/// Cached dependency graph.
+struct GraphCache {
+    graph: StatGraph,
+    toposort: Vec<StatId>,
+}
 
-    /// Copy-on-write overlay for modifications.
-    overlay: OverlayData,
+pub struct StatResolver {
+    registry: StatRegistry,
+    graph_cache: Option<GraphCache>,
 
     /// Cache of resolved stats (per-instance, not shared).
-    cache: HashMap<StatId, ResolvedStat>,
+    cache: FxHashMap<StatId, ResolvedStat>,
 }
 
 impl StatResolver {
@@ -107,15 +55,9 @@ impl StatResolver {
     /// ```
     pub fn new() -> Self {
         Self {
-            base: Arc::new(BaseData {
-                sources: HashMap::new(),
-                transforms: HashMap::new(),
-            }),
-            overlay: OverlayData {
-                sources: HashMap::new(),
-                transforms: HashMap::new(),
-            },
-            cache: HashMap::new(),
+            registry: StatRegistry::new(),
+            graph_cache: None,
+            cache: FxHashMap::default(),
         }
     }
 
@@ -133,7 +75,7 @@ impl StatResolver {
     /// use zzstat::numeric::StatNumeric;
     ///
     /// let mut base = StatResolver::new();
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     /// base.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
     ///
     /// // Fork the resolver
@@ -151,12 +93,9 @@ impl StatResolver {
     /// ```
     pub fn fork(&self) -> Self {
         Self {
-            base: Arc::clone(&self.base),
-            overlay: OverlayData {
-                sources: HashMap::new(),
-                transforms: HashMap::new(),
-            },
-            cache: HashMap::new(),
+            registry: self.registry.fork(),
+            graph_cache: None,
+            cache: FxHashMap::default(),
         }
     }
 
@@ -180,7 +119,7 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     ///
     /// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
     /// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(50.0)));
@@ -189,9 +128,11 @@ impl StatResolver {
     pub fn register_source(&mut self, stat_id: StatId, source: Box<dyn StatSource>) {
         let stat_id_clone = stat_id.clone();
         // Use copy-on-write helper to get the appropriate sources vector
-        self.get_mut_sources(stat_id).push(source);
-        // Invalidate cache for this stat
+        self.registry.get_mut_sources(stat_id).push(source);
+        // Invalidate cache for this stat and all dependents
+        self.graph_cache = None;
         self.cache.remove(&stat_id_clone);
+        self.invalidate_downstream(&stat_id_clone);
     }
 
     /// Register a transform for a stat.
@@ -213,7 +154,7 @@ impl StatResolver {
     /// use zzstat::transform::MultiplicativeTransform;
     ///
     /// let mut resolver = StatResolver::new();
-    /// let atk_id = StatId::from_str("ATK");
+    /// let atk_id = StatId::from("ATK");
     ///
     /// resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
     /// resolver.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.5)));
@@ -249,7 +190,7 @@ impl StatResolver {
     /// use zzstat::transform::{AdditiveTransform, TransformPhase};
     ///
     /// let mut resolver = StatResolver::new();
-    /// let atk_id = StatId::from_str("ATK");
+    /// let atk_id = StatId::from("ATK");
     ///
     /// resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
     /// resolver.register_transform_in_phase(
@@ -293,7 +234,7 @@ impl StatResolver {
     /// use zzstat::transform::{AdditiveTransform, StackRule, TransformPhase};
     ///
     /// let mut resolver = StatResolver::new();
-    /// let atk_id = StatId::from_str("ATK");
+    /// let atk_id = StatId::from("ATK");
     ///
     /// resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
     /// resolver.register_transform_with_rule(
@@ -325,9 +266,11 @@ impl StatResolver {
     fn register_transform_entry(&mut self, stat_id: StatId, entry: TransformEntry) {
         let stat_id_clone = stat_id.clone();
         // Use copy-on-write helper to get the appropriate transforms vector
-        self.get_mut_transforms(stat_id).push(entry);
+        self.registry.get_mut_transforms(stat_id).push(entry);
         // Invalidate cache for this stat and potentially dependent stats
+        self.graph_cache = None;
         self.cache.remove(&stat_id_clone);
+        self.invalidate_downstream(&stat_id_clone);
     }
 
     /// Resolve a single stat.
@@ -355,7 +298,7 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     ///
     /// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
     ///
@@ -400,8 +343,8 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// resolver.register_source(StatId::from_str("HP"), Box::new(ConstantSource(100.0)));
-    /// resolver.register_source(StatId::from_str("MP"), Box::new(ConstantSource(50.0)));
+    /// resolver.register_source(StatId::from("HP"), Box::new(ConstantSource(100.0)));
+    /// resolver.register_source(StatId::from("MP"), Box::new(ConstantSource(50.0)));
     ///
     /// let context = StatContext::new();
     /// let results = resolver.resolve_all(&context).unwrap();
@@ -410,7 +353,7 @@ impl StatResolver {
     pub fn resolve_all(
         &mut self,
         context: &StatContext,
-    ) -> Result<HashMap<StatId, ResolvedStat>, StatError> {
+    ) -> Result<FxHashMap<StatId, ResolvedStat>, StatError> {
         self.resolve_internal(ResolveScope::All, context)
     }
 
@@ -439,9 +382,9 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// let str_id = StatId::from_str("STR");
-    /// let atk_id = StatId::from_str("ATK");
-    /// let hp_id = StatId::from_str("HP");
+    /// let str_id = StatId::from("STR");
+    /// let atk_id = StatId::from("ATK");
+    /// let hp_id = StatId::from("HP");
     ///
     /// resolver.register_source(str_id.clone(), Box::new(ConstantSource(10.0)));
     /// resolver.register_source(atk_id.clone(), Box::new(ConstantSource(50.0)));
@@ -458,7 +401,7 @@ impl StatResolver {
         &mut self,
         targets: &[StatId],
         context: &StatContext,
-    ) -> Result<HashMap<StatId, ResolvedStat>, StatError> {
+    ) -> Result<FxHashMap<StatId, ResolvedStat>, StatError> {
         self.resolve_internal(ResolveScope::Batch(targets.to_vec()), context)
     }
 
@@ -478,7 +421,7 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     ///
     /// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
     /// let context = StatContext::new();
@@ -490,6 +433,22 @@ impl StatResolver {
     /// ```
     pub fn invalidate(&mut self, stat_id: &StatId) {
         self.cache.remove(stat_id);
+        self.invalidate_downstream(stat_id);
+    }
+
+    /// Internal method to invalidate cache for all stats that depend on the given stat.
+    fn invalidate_downstream(&mut self, stat_id: &StatId) {
+        if self.cache.is_empty() {
+            return;
+        }
+        
+        // Build the current graph to find dependents. 
+        if let Ok(graph) = self.build_graph() {
+            let dependents = graph.get_all_dependents(stat_id);
+            for dep in dependents {
+                self.cache.remove(&dep);
+            }
+        }
     }
 
     /// Invalidate the entire cache.
@@ -503,7 +462,7 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// resolver.register_source(StatId::from_str("HP"), Box::new(ConstantSource(100.0)));
+    /// resolver.register_source(StatId::from("HP"), Box::new(ConstantSource(100.0)));
     ///
     /// let context = StatContext::new();
     /// let _ = resolver.resolve_all(&context).unwrap();
@@ -536,7 +495,7 @@ impl StatResolver {
     /// use zzstat::source::ConstantSource;
     ///
     /// let mut resolver = StatResolver::new();
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     ///
     /// resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
     /// let context = StatContext::new();
@@ -555,83 +514,9 @@ impl StatResolver {
         self.cache.get(stat_id)
     }
 
-    /// Get sources for a stat (checking overlay first, then base).
-    ///
-    /// Overlay completely shadows base - if overlay has sources for this stat,
-    /// only overlay sources are returned. Otherwise, base sources are returned.
-    #[allow(dead_code)]
-    fn get_sources(&self, stat_id: &StatId) -> Option<&Vec<Box<dyn StatSource>>> {
-        self.overlay
-            .sources
-            .get(stat_id)
-            .or_else(|| self.base.sources.get(stat_id))
-    }
 
-    /// Get transforms for a stat (checking overlay first, then base).
-    ///
-    /// Overlay completely shadows base - if overlay has transforms for this stat,
-    /// only overlay transforms are returned. Otherwise, base transforms are returned.
-    fn get_transforms(&self, stat_id: &StatId) -> Option<&Vec<TransformEntry>> {
-        self.overlay
-            .transforms
-            .get(stat_id)
-            .or_else(|| self.base.transforms.get(stat_id))
-    }
 
-    /// Get all stat IDs that have sources or transforms.
-    fn get_all_stat_ids(&self) -> std::collections::HashSet<StatId> {
-        let mut ids = std::collections::HashSet::new();
-        ids.extend(self.base.sources.keys().cloned());
-        ids.extend(self.base.transforms.keys().cloned());
-        ids.extend(self.overlay.sources.keys().cloned());
-        ids.extend(self.overlay.transforms.keys().cloned());
-        ids
-    }
 
-    /// Check if this resolver is a fork (has shared base data).
-    ///
-    /// Forks use copy-on-write semantics, storing modifications in the overlay.
-    fn is_fork(&self) -> bool {
-        Arc::strong_count(&self.base) > 1
-    }
-
-    /// Get mutable access to sources, using overlay if this is a fork.
-    ///
-    /// Returns a mutable reference to the sources vector for the given stat,
-    /// either from the overlay (if fork) or base (if original).
-    fn get_mut_sources(&mut self, stat_id: StatId) -> &mut Vec<Box<dyn StatSource>> {
-        if self.is_fork() {
-            // This is a fork, use overlay
-            self.overlay.sources.entry(stat_id).or_default()
-        } else {
-            // This is the original, try to get mutable access to base
-            if let Some(base) = Arc::get_mut(&mut self.base) {
-                base.sources.entry(stat_id).or_default()
-            } else {
-                // Fallback: use overlay if we can't get mutable access
-                self.overlay.sources.entry(stat_id).or_default()
-            }
-        }
-    }
-
-    /// Get mutable access to transforms, using overlay if this is a fork.
-    ///
-    /// Returns a mutable reference to the transforms vector for the given stat,
-    /// either from the overlay (if fork) or base (if original).
-    fn get_mut_transforms(&mut self, stat_id: StatId) -> &mut Vec<TransformEntry> {
-        if self.is_fork() {
-            // This is a fork, use overlay
-            self.overlay.transforms.entry(stat_id).or_default()
-        } else {
-            // This is the original, try to get mutable access to base
-            if let Some(base) = Arc::get_mut(&mut self.base) {
-                base.transforms.entry(stat_id).or_default()
-            } else {
-                // Fallback: use overlay if we can't get mutable access
-                self.overlay.transforms.entry(stat_id).or_default()
-            }
-        }
-    }
 
     /// Internal method to resolve stats based on scope.
     ///
@@ -641,13 +526,11 @@ impl StatResolver {
         &mut self,
         scope: ResolveScope,
         context: &StatContext,
-    ) -> Result<HashMap<StatId, ResolvedStat>, StatError> {
-        // Extract needed information from scope before moving
-        let (single_stat_id, _batch_targets, is_all) = match &scope {
+    ) -> Result<FxHashMap<StatId, ResolvedStat>, StatError> {
+        let (single_stat_id, batch_targets, is_all) = match &scope {
             ResolveScope::Single(stat_id) => {
-                // For single stat, check cache first
                 if let Some(cached) = self.cache.get(stat_id) {
-                    let mut result = HashMap::new();
+                    let mut result = FxHashMap::default();
                     result.insert(stat_id.clone(), cached.clone());
                     return Ok(result);
                 }
@@ -656,55 +539,42 @@ impl StatResolver {
             ResolveScope::All => (None, None, true),
             ResolveScope::Batch(targets) => {
                 if targets.is_empty() {
-                    return Ok(HashMap::new());
+                    return Ok(FxHashMap::default());
                 }
                 (None, Some(targets.clone()), false)
             }
         };
 
-        // Determine which graph to use and which stats to resolve
-        let (graph, resolution_order) = match scope {
-            ResolveScope::Single(_) => {
-                // Build full graph and get topological sort
-                let full_graph = self.build_graph()?;
-                let order = full_graph.topological_sort()?;
-                (full_graph, order)
-            }
-            ResolveScope::All => {
-                // Build full graph and get topological sort
-                let full_graph = self.build_graph()?;
-                let order = full_graph.topological_sort()?;
-                (full_graph, order)
-            }
-            ResolveScope::Batch(ref targets) => {
-                // Build full graph and extract subgraph for targets
-                let full_graph = self.build_graph()?;
-                let subgraph = full_graph.subgraph_for_targets(targets);
-                let order = subgraph.topological_sort()?;
-                (full_graph, order)
-            }
+        if self.graph_cache.is_none() {
+            let graph = self.build_graph()?;
+            let toposort = graph.topological_sort()?;
+            self.graph_cache = Some(GraphCache { graph, toposort });
+        }
+
+        let graph_cache = self.graph_cache.as_ref().unwrap();
+
+        let resolution_order = if let Some(targets) = batch_targets.as_ref() {
+            let subgraph = graph_cache.graph.subgraph_for_targets(targets.as_slice());
+            subgraph.topological_sort()?
+        } else {
+            graph_cache.toposort.clone()
         };
 
-        // Resolve all stats in resolution order
         for stat_id in &resolution_order {
             if !self.cache.contains_key(stat_id) {
-                let resolved = self.resolve_stat_internal(stat_id, context, &graph)?;
+                let resolved = self.resolve_stat_internal(stat_id, context, &graph_cache.graph)?;
                 self.cache.insert(stat_id.clone(), resolved);
             }
         }
 
-        // Collect results based on scope
-        let mut results = HashMap::new();
+        let mut results = FxHashMap::default();
         if let Some(stat_id) = single_stat_id {
-            // Return only the requested stat
             if let Some(resolved) = self.cache.get(&stat_id) {
                 results.insert(stat_id, resolved.clone());
             }
         } else if is_all {
-            // Return all cached stats
             results = self.cache.clone();
         } else {
-            // Return only stats from the resolution order (subgraph)
             for stat_id in &resolution_order {
                 if let Some(resolved) = self.cache.get(stat_id) {
                     results.insert(stat_id.clone(), resolved.clone());
@@ -720,13 +590,13 @@ impl StatResolver {
         let mut graph = StatGraph::new();
 
         // Add all stats that have sources or transforms
-        for stat_id in self.get_all_stat_ids() {
+        for stat_id in self.registry.get_all_stat_ids() {
             graph.add_node(stat_id);
         }
 
         // Add edges from transform dependencies (check overlay first, then base)
-        for stat_id in self.get_all_stat_ids() {
-            if let Some(transforms) = self.get_transforms(&stat_id) {
+        for stat_id in self.registry.get_all_stat_ids() {
+            if let Some(transforms) = self.registry.get_transforms(&stat_id) {
                 for entry in transforms {
                     for dep in entry.transform.depends_on() {
                         // dep must be resolved before stat_id
@@ -754,7 +624,7 @@ impl StatResolver {
         let mut source_count = 0;
 
         // Collect base sources
-        if let Some(base_sources) = self.base.sources.get(stat_id) {
+        if let Some(base_sources) = self.registry.base.sources.get(stat_id) {
             for source in base_sources.iter() {
                 let value = source.get_value(stat_id, context);
                 base_value += value;
@@ -764,7 +634,7 @@ impl StatResolver {
         }
 
         // Collect overlay sources (additive to base)
-        if let Some(overlay_sources) = self.overlay.sources.get(stat_id) {
+        if let Some(overlay_sources) = self.registry.overlay.sources.get(stat_id) {
             for source in overlay_sources.iter() {
                 let value = source.get_value(stat_id, context);
                 base_value += value;
@@ -784,10 +654,10 @@ impl StatResolver {
 
         // Collect all transforms (base first, then overlay)
         let mut all_transforms = Vec::new();
-        if let Some(base_transforms) = self.base.transforms.get(stat_id) {
+        if let Some(base_transforms) = self.registry.base.transforms.get(stat_id) {
             all_transforms.extend(base_transforms.iter());
         }
-        if let Some(overlay_transforms) = self.overlay.transforms.get(stat_id) {
+        if let Some(overlay_transforms) = self.registry.overlay.transforms.get(stat_id) {
             all_transforms.extend(overlay_transforms.iter());
         }
 
@@ -1033,8 +903,8 @@ impl StatResolver {
         &self,
         dep_ids: Vec<StatId>,
         _stat_id: &StatId,
-    ) -> Result<HashMap<StatId, StatValue>, StatError> {
-        let mut dependencies = HashMap::new();
+    ) -> Result<FxHashMap<StatId, StatValue>, StatError> {
+        let mut dependencies = FxHashMap::default();
         for dep_id in dep_ids {
             let dep_value = self
                 .cache
@@ -1108,7 +978,7 @@ mod tests {
     #[test]
     fn test_resolve_simple_source() {
         let mut resolver = StatResolver::new();
-        let hp_id = StatId::from_str("HP");
+        let hp_id = StatId::from("HP");
 
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -1122,7 +992,7 @@ mod tests {
     #[test]
     fn test_resolve_multiple_sources() {
         let mut resolver = StatResolver::new();
-        let hp_id = StatId::from_str("HP");
+        let hp_id = StatId::from("HP");
 
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(50.0)));
@@ -1137,7 +1007,7 @@ mod tests {
     #[test]
     fn test_resolve_with_transform() {
         let mut resolver = StatResolver::new();
-        let atk_id = StatId::from_str("ATK");
+        let atk_id = StatId::from("ATK");
 
         resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
         resolver.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.5)));
@@ -1152,8 +1022,8 @@ mod tests {
     #[test]
     fn test_resolve_with_dependency() {
         let mut resolver = StatResolver::new();
-        let str_id = StatId::from_str("STR");
-        let atk_id = StatId::from_str("ATK");
+        let str_id = StatId::from("STR");
+        let atk_id = StatId::from("ATK");
 
         resolver.register_source(str_id.clone(), Box::new(ConstantSource(10.0)));
         resolver.register_source(atk_id.clone(), Box::new(ConstantSource(50.0)));
@@ -1172,7 +1042,7 @@ mod tests {
     #[test]
     fn test_resolve_missing_source() {
         let mut resolver = StatResolver::new();
-        let hp_id = StatId::from_str("HP");
+        let hp_id = StatId::from("HP");
 
         let context = StatContext::new();
         let _result = resolver.resolve(&hp_id, &context);
@@ -1184,7 +1054,7 @@ mod tests {
     #[test]
     fn test_cache_invalidation() {
         let mut resolver = StatResolver::new();
-        let hp_id = StatId::from_str("HP");
+        let hp_id = StatId::from("HP");
 
         resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -1207,8 +1077,8 @@ mod tests {
     #[test]
     fn test_cycle_detection() {
         let mut resolver = StatResolver::new();
-        let a_id = StatId::from_str("A");
-        let b_id = StatId::from_str("B");
+        let a_id = StatId::from("A");
+        let b_id = StatId::from("B");
 
         // Create a cycle: A depends on B, B depends on A
         resolver.register_source(a_id.clone(), Box::new(ConstantSource(1.0)));
@@ -1232,5 +1102,34 @@ mod tests {
         } else {
             panic!("Expected Cycle error");
         }
+    }
+    #[test]
+    fn test_cache_invalidation_chain() {
+        let mut resolver = StatResolver::new();
+        let str_id = StatId::from("STR");
+        let atk_id = StatId::from("ATK");
+
+        // ATK depends on STR (ATK = STR * 2)
+        resolver.register_source(str_id.clone(), Box::new(ConstantSource(10.0)));
+        resolver.register_source(atk_id.clone(), Box::new(ConstantSource(0.0)));
+        resolver.register_transform(
+            atk_id.clone(),
+            Box::new(ScalingTransform::new(str_id.clone(), 2.0)),
+        );
+
+        let context = StatContext::new();
+        
+        // Initial resolution
+        let atk_resolved = resolver.resolve(&atk_id, &context).unwrap();
+        assert_eq!(atk_resolved.value, StatValue::from_f64(20.0));
+
+        // Now change STR by registering a new source (e.g., buff)
+        // This should invalidate STR AND downstream ATK
+        resolver.register_source(str_id.clone(), Box::new(ConstantSource(5.0))); // total STR = 15
+
+        // Resolve ATK again
+        let atk_resolved2 = resolver.resolve(&atk_id, &context).unwrap();
+        // ATK should be 15 * 2 = 30
+        assert_eq!(atk_resolved2.value, StatValue::from_f64(30.0));
     }
 }

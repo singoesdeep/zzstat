@@ -8,7 +8,7 @@ use crate::error::StatError;
 use crate::stat_id::StatId;
 use petgraph::algo::toposort;
 use petgraph::graph::{DiGraph, NodeIndex};
-use std::collections::HashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 /// A directed acyclic graph (DAG) representing stat dependencies.
 ///
@@ -25,8 +25,8 @@ use std::collections::HashMap;
 /// use zzstat::StatId;
 ///
 /// let mut graph = StatGraph::new();
-/// let str_id = StatId::from_str("STR");
-/// let atk_id = StatId::from_str("ATK");
+/// let str_id = StatId::from("STR");
+/// let atk_id = StatId::from("ATK");
 ///
 /// // ATK depends on STR
 /// graph.add_edge(atk_id, str_id);
@@ -36,7 +36,7 @@ use std::collections::HashMap;
 /// ```
 pub struct StatGraph {
     graph: DiGraph<StatId, ()>,
-    node_map: HashMap<StatId, NodeIndex>,
+    node_map: FxHashMap<StatId, NodeIndex>,
 }
 
 impl StatGraph {
@@ -52,7 +52,7 @@ impl StatGraph {
     pub fn new() -> Self {
         Self {
             graph: DiGraph::new(),
-            node_map: HashMap::new(),
+            node_map: FxHashMap::default(),
         }
     }
 
@@ -95,8 +95,8 @@ impl StatGraph {
     /// use zzstat::StatId;
     ///
     /// let mut graph = StatGraph::new();
-    /// let atk_id = StatId::from_str("ATK");
-    /// let str_id = StatId::from_str("STR");
+    /// let atk_id = StatId::from("ATK");
+    /// let str_id = StatId::from("STR");
     ///
     /// // ATK depends on STR
     /// graph.add_edge(atk_id, str_id);
@@ -123,8 +123,8 @@ impl StatGraph {
     /// use zzstat::StatId;
     ///
     /// let mut graph = StatGraph::new();
-    /// let a = StatId::from_str("A");
-    /// let b = StatId::from_str("B");
+    /// let a = StatId::from("A");
+    /// let b = StatId::from("B");
     ///
     /// // No cycle
     /// graph.add_edge(b.clone(), a.clone());
@@ -136,8 +136,8 @@ impl StatGraph {
     /// ```
     pub fn detect_cycles(&self) -> Result<(), StatError> {
         // Use DFS to detect cycles
-        let mut visited = std::collections::HashSet::new();
-        let mut rec_stack = std::collections::HashSet::new();
+        let mut visited = FxHashSet::default();
+        let mut rec_stack = FxHashSet::default();
 
         for node_idx in self.graph.node_indices() {
             if !visited.contains(&node_idx) {
@@ -156,8 +156,8 @@ impl StatGraph {
     fn dfs_cycle_detect(
         &self,
         node: NodeIndex,
-        visited: &mut std::collections::HashSet<NodeIndex>,
-        rec_stack: &mut std::collections::HashSet<NodeIndex>,
+        visited: &mut FxHashSet<NodeIndex>,
+        rec_stack: &mut FxHashSet<NodeIndex>,
         cycle_path: &mut Vec<StatId>,
     ) -> Option<StatError> {
         visited.insert(node);
@@ -221,8 +221,8 @@ impl StatGraph {
     /// use zzstat::StatId;
     ///
     /// let mut graph = StatGraph::new();
-    /// let str_id = StatId::from_str("STR");
-    /// let atk_id = StatId::from_str("ATK");
+    /// let str_id = StatId::from("STR");
+    /// let atk_id = StatId::from("ATK");
     ///
     /// graph.add_edge(atk_id.clone(), str_id.clone());
     ///
@@ -263,8 +263,8 @@ impl StatGraph {
     /// use zzstat::StatId;
     ///
     /// let mut graph = StatGraph::new();
-    /// graph.add_node(StatId::from_str("HP"));
-    /// graph.add_node(StatId::from_str("ATK"));
+    /// graph.add_node(StatId::from("HP"));
+    /// graph.add_node(StatId::from("ATK"));
     ///
     /// let nodes = graph.nodes();
     /// assert_eq!(nodes.len(), 2);
@@ -293,11 +293,11 @@ impl StatGraph {
     /// use zzstat::StatId;
     ///
     /// let mut graph = StatGraph::new();
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     /// graph.add_node(hp_id.clone());
     ///
     /// assert!(graph.contains_node(&hp_id));
-    /// assert!(!graph.contains_node(&StatId::from_str("ATK")));
+    /// assert!(!graph.contains_node(&StatId::from("ATK")));
     /// ```
     pub fn contains_node(&self, stat_id: &StatId) -> bool {
         self.node_map.contains_key(stat_id)
@@ -323,9 +323,9 @@ impl StatGraph {
     /// use zzstat::StatId;
     ///
     /// let mut graph = StatGraph::new();
-    /// let str_id = StatId::from_str("STR");
-    /// let atk_id = StatId::from_str("ATK");
-    /// let hp_id = StatId::from_str("HP");
+    /// let str_id = StatId::from("STR");
+    /// let atk_id = StatId::from("ATK");
+    /// let hp_id = StatId::from("HP");
     ///
     /// // ATK depends on STR
     /// graph.add_edge(atk_id.clone(), str_id.clone());
@@ -338,7 +338,7 @@ impl StatGraph {
     /// ```
     pub fn subgraph_for_targets(&self, targets: &[StatId]) -> StatGraph {
         let mut subgraph = StatGraph::new();
-        let mut visited = std::collections::HashSet::new();
+        let mut visited = FxHashSet::default();
 
         // Reverse DFS from targets to find all dependencies
         let mut stack: Vec<StatId> = targets.to_vec();
@@ -372,6 +372,41 @@ impl StatGraph {
 
         subgraph
     }
+
+    /// Get all stats that depend on the given source stat, directly or indirectly.
+    ///
+    /// Performs a DFS following outgoing edges from the source to find all dependents.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The stat ID to find dependents for
+    ///
+    /// # Returns
+    ///
+    /// A set of all stat IDs that depend on the source.
+    pub fn get_all_dependents(&self, source: &StatId) -> FxHashSet<StatId> {
+        let mut dependents = FxHashSet::default();
+        let mut stack = Vec::new();
+
+        if let Some(&start_idx) = self.node_map.get(source) {
+            stack.push(start_idx);
+        }
+
+        while let Some(node_idx) = stack.pop() {
+            for neighbor_idx in self
+                .graph
+                .neighbors_directed(node_idx, petgraph::Direction::Outgoing)
+            {
+                let dep_stat_id = self.graph[neighbor_idx].clone();
+                if dependents.insert(dep_stat_id) {
+                    // Only push if not already visited
+                    stack.push(neighbor_idx);
+                }
+            }
+        }
+
+        dependents
+    }
 }
 
 impl Default for StatGraph {
@@ -387,8 +422,8 @@ mod tests {
     #[test]
     fn test_graph_add_nodes() {
         let mut graph = StatGraph::new();
-        let hp = StatId::from_str("HP");
-        let atk = StatId::from_str("ATK");
+        let hp = StatId::from("HP");
+        let atk = StatId::from("ATK");
 
         graph.add_node(hp.clone());
         graph.add_node(atk.clone());
@@ -400,8 +435,8 @@ mod tests {
     #[test]
     fn test_graph_add_edge() {
         let mut graph = StatGraph::new();
-        let atk = StatId::from_str("ATK");
-        let str = StatId::from_str("STR");
+        let atk = StatId::from("ATK");
+        let str = StatId::from("STR");
 
         // ATK depends on STR
         graph.add_edge(atk.clone(), str.clone());
@@ -413,9 +448,9 @@ mod tests {
     #[test]
     fn test_graph_no_cycle() {
         let mut graph = StatGraph::new();
-        let str = StatId::from_str("STR");
-        let atk = StatId::from_str("ATK");
-        let dps = StatId::from_str("DPS");
+        let str = StatId::from("STR");
+        let atk = StatId::from("ATK");
+        let dps = StatId::from("DPS");
 
         // STR -> ATK -> DPS (linear chain, no cycle)
         graph.add_edge(atk.clone(), str.clone());
@@ -427,9 +462,9 @@ mod tests {
     #[test]
     fn test_graph_detect_cycle() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
 
         // Create cycle: A -> B -> C -> A
         graph.add_edge(b.clone(), a.clone());
@@ -442,10 +477,10 @@ mod tests {
     #[test]
     fn test_topological_sort() {
         let mut graph = StatGraph::new();
-        let str = StatId::from_str("STR");
-        let dex = StatId::from_str("DEX");
-        let atk = StatId::from_str("ATK");
-        let crit = StatId::from_str("CRIT");
+        let str = StatId::from("STR");
+        let dex = StatId::from("DEX");
+        let atk = StatId::from("ATK");
+        let crit = StatId::from("CRIT");
 
         // STR -> ATK, DEX -> CRIT
         graph.add_edge(atk.clone(), str.clone());
@@ -466,11 +501,11 @@ mod tests {
     #[test]
     fn test_subgraph_for_targets() {
         let mut graph = StatGraph::new();
-        let str_id = StatId::from_str("STR");
-        let dex_id = StatId::from_str("DEX");
-        let atk_id = StatId::from_str("ATK");
-        let crit_id = StatId::from_str("CRIT");
-        let hp_id = StatId::from_str("HP");
+        let str_id = StatId::from("STR");
+        let dex_id = StatId::from("DEX");
+        let atk_id = StatId::from("ATK");
+        let crit_id = StatId::from("CRIT");
+        let hp_id = StatId::from("HP");
 
         // ATK depends on STR
         graph.add_edge(atk_id.clone(), str_id.clone());
@@ -494,10 +529,10 @@ mod tests {
     #[test]
     fn test_subgraph_for_multiple_targets() {
         let mut graph = StatGraph::new();
-        let str_id = StatId::from_str("STR");
-        let atk_id = StatId::from_str("ATK");
-        let dps_id = StatId::from_str("DPS");
-        let hp_id = StatId::from_str("HP");
+        let str_id = StatId::from("STR");
+        let atk_id = StatId::from("ATK");
+        let dps_id = StatId::from("DPS");
+        let hp_id = StatId::from("HP");
 
         // ATK depends on STR
         graph.add_edge(atk_id.clone(), str_id.clone());
@@ -519,11 +554,11 @@ mod tests {
     #[test]
     fn test_subgraph_for_targets_with_shared_dependency() {
         let mut graph = StatGraph::new();
-        let base_id = StatId::from_str("BASE");
-        let mid1_id = StatId::from_str("MID1");
-        let mid2_id = StatId::from_str("MID2");
-        let top1_id = StatId::from_str("TOP1");
-        let top2_id = StatId::from_str("TOP2");
+        let base_id = StatId::from("BASE");
+        let mid1_id = StatId::from("MID1");
+        let mid2_id = StatId::from("MID2");
+        let top1_id = StatId::from("TOP1");
+        let top2_id = StatId::from("TOP2");
 
         // Both MID1 and MID2 depend on BASE
         graph.add_edge(mid1_id.clone(), base_id.clone());
@@ -556,8 +591,8 @@ mod tests {
     #[test]
     fn test_subgraph_for_targets_nonexistent() {
         let mut graph = StatGraph::new();
-        let existing_id = StatId::from_str("EXISTING");
-        let nonexistent_id = StatId::from_str("NONEXISTENT");
+        let existing_id = StatId::from("EXISTING");
+        let nonexistent_id = StatId::from("NONEXISTENT");
 
         graph.add_node(existing_id.clone());
 
@@ -571,9 +606,9 @@ mod tests {
     #[test]
     fn test_graph_nodes() {
         let mut graph = StatGraph::new();
-        let hp = StatId::from_str("HP");
-        let atk = StatId::from_str("ATK");
-        let mp = StatId::from_str("MP");
+        let hp = StatId::from("HP");
+        let atk = StatId::from("ATK");
+        let mp = StatId::from("MP");
 
         graph.add_node(hp.clone());
         graph.add_node(atk.clone());
@@ -589,7 +624,7 @@ mod tests {
     #[test]
     fn test_graph_duplicate_nodes() {
         let mut graph = StatGraph::new();
-        let hp = StatId::from_str("HP");
+        let hp = StatId::from("HP");
 
         let idx1 = graph.add_node(hp.clone());
         let idx2 = graph.add_node(hp.clone());
@@ -602,10 +637,10 @@ mod tests {
     #[test]
     fn test_graph_complex_cycle() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
-        let d = StatId::from_str("D");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
+        let d = StatId::from("D");
 
         // Create cycle: A -> B -> C -> D -> A
         graph.add_edge(b.clone(), a.clone());
@@ -619,7 +654,7 @@ mod tests {
     #[test]
     fn test_graph_self_cycle() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
+        let a = StatId::from("A");
 
         // Self-cycle: A depends on itself
         graph.add_edge(a.clone(), a.clone());
@@ -630,10 +665,10 @@ mod tests {
     #[test]
     fn test_graph_multiple_independent_cycles() {
         let mut graph = StatGraph::new();
-        let a1 = StatId::from_str("A1");
-        let b1 = StatId::from_str("B1");
-        let a2 = StatId::from_str("A2");
-        let b2 = StatId::from_str("B2");
+        let a1 = StatId::from("A1");
+        let b1 = StatId::from("B1");
+        let a2 = StatId::from("A2");
+        let b2 = StatId::from("B2");
 
         // Two independent cycles
         graph.add_edge(b1.clone(), a1.clone());
@@ -648,8 +683,8 @@ mod tests {
     #[test]
     fn test_cycle_path_simple_2_node() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
 
         // Create cycle: A -> B -> A
         graph.add_edge(b.clone(), a.clone());
@@ -671,9 +706,9 @@ mod tests {
     #[test]
     fn test_cycle_path_3_node() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
 
         // Create cycle: A -> B -> C -> A
         graph.add_edge(b.clone(), a.clone());
@@ -697,10 +732,10 @@ mod tests {
     #[test]
     fn test_cycle_path_4_node() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
-        let d = StatId::from_str("D");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
+        let d = StatId::from("D");
 
         // Create cycle: A -> B -> C -> D -> A
         graph.add_edge(b.clone(), a.clone());
@@ -726,7 +761,7 @@ mod tests {
     #[test]
     fn test_cycle_path_self_cycle() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
+        let a = StatId::from("A");
 
         // Self-cycle: A depends on itself
         graph.add_edge(a.clone(), a.clone());
@@ -746,11 +781,11 @@ mod tests {
     #[test]
     fn test_cycle_path_excludes_non_cycle_nodes() {
         let mut graph = StatGraph::new();
-        let x = StatId::from_str("X");
-        let y = StatId::from_str("Y");
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
+        let x = StatId::from("X");
+        let y = StatId::from("Y");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
 
         // X -> Y -> A -> B -> C -> A (cycle)
         // X and Y are not part of the cycle
@@ -779,9 +814,9 @@ mod tests {
     #[test]
     fn test_cycle_path_deterministic() {
         let mut graph = StatGraph::new();
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
 
         // Create cycle: A -> B -> C -> A
         graph.add_edge(b.clone(), a.clone());

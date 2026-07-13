@@ -12,10 +12,11 @@ use crate::transform::{
     AdditiveTransform, ClampTransform, MultiplicativeTransform, StackRule, StatTransform,
     TransformPhase,
 };
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
+use serde::{Serialize, Deserialize};
 
 /// Bonus operation type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BonusOp {
     /// Add a flat or percentage value.
     Add,
@@ -30,7 +31,7 @@ pub enum BonusOp {
 }
 
 /// Bonus value type.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum BonusValue {
     /// Flat numeric value.
     Flat(f64),
@@ -42,7 +43,7 @@ pub enum BonusValue {
 ///
 /// This is the declarative form that game code uses to define bonuses.
 /// It must be compiled into a `CompiledBonus` before being applied.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bonus {
     /// The target stat ID.
     pub target: StatId,
@@ -86,7 +87,7 @@ impl Bonus {
     /// use zzstat::StatId;
     /// use zzstat::transform::TransformPhase;
     ///
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     /// let bonus = Bonus::add(hp_id)
     ///     .flat(50.0)
     ///     .in_phase(TransformPhase::Custom(3));
@@ -104,7 +105,7 @@ impl Bonus {
     /// use zzstat::StatId;
     /// use zzstat::transform::TransformPhase;
     ///
-    /// let atk_id = StatId::from_str("ATK");
+    /// let atk_id = StatId::from("ATK");
     /// let bonus = Bonus::mul(atk_id)
     ///     .percent(0.20)
     ///     .in_phase(TransformPhase::Custom(3));
@@ -125,7 +126,7 @@ impl Bonus {
     /// use zzstat::StatId;
     /// use zzstat::transform::TransformPhase;
     ///
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     /// let bonus = Bonus::r#override(hp_id, 500.0)
     ///     .in_phase(TransformPhase::Custom(4));
     /// ```
@@ -142,7 +143,7 @@ impl Bonus {
     /// use zzstat::StatId;
     /// use zzstat::transform::TransformPhase;
     ///
-    /// let hp_id = StatId::from_str("HP");
+    /// let hp_id = StatId::from("HP");
     /// let bonus = Bonus::clamp_min(hp_id, 100.0)
     ///     .in_phase(TransformPhase::Final);
     /// ```
@@ -159,7 +160,7 @@ impl Bonus {
     /// use zzstat::StatId;
     /// use zzstat::transform::TransformPhase;
     ///
-    /// let crit_id = StatId::from_str("CRIT_CHANCE");
+    /// let crit_id = StatId::from("CRIT_CHANCE");
     /// let bonus = Bonus::clamp_max(crit_id, 0.75)
     ///     .in_phase(TransformPhase::Final);
     /// ```
@@ -330,7 +331,7 @@ enum TransformData {
 /// use zzstat::StatId;
 /// use zzstat::transform::TransformPhase;
 ///
-/// let hp_id = StatId::from_str("HP");
+/// let hp_id = StatId::from("HP");
 /// let bonus = Bonus::add(hp_id)
 ///     .flat(50.0)
 ///     .in_phase(TransformPhase::Custom(3));
@@ -357,24 +358,15 @@ pub fn compile_bonus<N: StatNumeric>(bonus: &Bonus) -> CompiledBonus<N> {
             )
         }
         BonusOp::Override => {
-            let value = match bonus.value {
-                BonusValue::Flat(v) => v,
-                BonusValue::Percent(_) => bonus.value.to_f64(),
-            };
+            let value = f64::from(bonus.value);
             (TransformData::Override(value), StackRule::Override)
         }
         BonusOp::ClampMin => {
-            let min_value = match bonus.value {
-                BonusValue::Flat(v) => v,
-                BonusValue::Percent(_) => bonus.value.to_f64(),
-            };
+            let min_value = f64::from(bonus.value);
             (TransformData::ClampMin(min_value), StackRule::MinMax)
         }
         BonusOp::ClampMax => {
-            let max_value = match bonus.value {
-                BonusValue::Flat(v) => v,
-                BonusValue::Percent(_) => bonus.value.to_f64(),
-            };
+            let max_value = f64::from(bonus.value);
             (TransformData::ClampMax(max_value), StackRule::MinMax)
         }
     };
@@ -428,7 +420,7 @@ impl<N: StatNumeric> CompiledBonus<N> {
 /// use zzstat::transform::TransformPhase;
 ///
 /// let mut resolver = StatResolver::new();
-/// let hp_id = StatId::from_str("HP");
+/// let hp_id = StatId::from("HP");
 /// let bonus = Bonus::add(hp_id)
 ///     .flat(50.0)
 ///     .in_phase(TransformPhase::Custom(3));
@@ -464,7 +456,7 @@ pub fn apply_compiled_bonus<N: StatNumeric>(
 /// use zzstat::transform::TransformPhase;
 ///
 /// let mut resolver = StatResolver::new();
-/// let hp_id = StatId::from_str("HP");
+/// let hp_id = StatId::from("HP");
 /// let bonuses = vec![
 ///     Bonus::add(hp_id.clone()).flat(50.0).in_phase(TransformPhase::Custom(3)),
 ///     Bonus::mul(hp_id).percent(0.10).in_phase(TransformPhase::Custom(3)),
@@ -514,7 +506,7 @@ impl StatTransform for PercentAdditiveTransform {
     fn apply(
         &self,
         input: StatValue,
-        dependencies: &HashMap<StatId, StatValue>,
+        dependencies: &FxHashMap<StatId, StatValue>,
         _context: &StatContext,
     ) -> Result<StatValue, StatError> {
         let dep_value = dependencies
@@ -566,7 +558,7 @@ impl StatTransform for OverrideTransform {
     fn apply(
         &self,
         _input: StatValue,
-        _dependencies: &HashMap<StatId, StatValue>,
+        _dependencies: &FxHashMap<StatId, StatValue>,
         _context: &StatContext,
     ) -> Result<StatValue, StatError> {
         // Always return the absolute value, completely ignoring input
@@ -578,10 +570,9 @@ impl StatTransform for OverrideTransform {
     }
 }
 
-// Helper implementation for BonusValue
-impl BonusValue {
-    fn to_f64(self) -> f64 {
-        match self {
+impl From<BonusValue> for f64 {
+    fn from(value: BonusValue) -> Self {
+        match value {
             BonusValue::Flat(v) => v,
             BonusValue::Percent(v) => v,
         }

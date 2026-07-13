@@ -247,8 +247,8 @@ impl Mul for FixedPoint {
 
     fn mul(self, other: Self) -> Self {
         let (v1, v2, scale) = self.normalize(other);
-        // Result needs to be divided by 10^scale to maintain scale
-        let result = (v1 * v2) / 10_i64.pow(scale as u32);
+        // Use i128 to prevent overflow during intermediate multiplication
+        let result = ((v1 as i128 * v2 as i128) / 10_i128.pow(scale as u32)) as i64;
         Self {
             value: result,
             scale,
@@ -262,8 +262,8 @@ impl Div for FixedPoint {
 
     fn div(self, other: Self) -> Self {
         let (v1, v2, scale) = self.normalize(other);
-        // Result needs to be multiplied by 10^scale to maintain scale
-        let result = (v1 * 10_i64.pow(scale as u32)) / v2;
+        // Use i128 to prevent overflow during intermediate multiplication
+        let result = ((v1 as i128 * 10_i128.pow(scale as u32)) / v2 as i128) as i64;
         Self {
             value: result,
             scale,
@@ -363,6 +363,17 @@ mod tests {
         let sum = a + b;
         // Should normalize to scale 5
         assert_eq!(sum.scale(), 5);
+    }
+
+    #[cfg(feature = "fixed-point")]
+    #[test]
+    fn test_fixed_point_overflow_safety() {
+        // Multiply numbers that would overflow i64 during intermediate calculation,
+        // but whose final result fits in i64 (max ~9.22 * 10^18)
+        let a = FixedPoint::new(300_000_000_000, 4); // 30,000,000.0000
+        let b = FixedPoint::new(30_000_000_000, 4); // 3,000,000.0000
+        let result = a * b; 
+        assert_eq!(result.value(), 900_000_000_000_000_000);
     }
 
     #[test]

@@ -18,7 +18,7 @@ use zzstat::*;
 
 #[test]
 fn test_bonus_add_flat() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::add(hp_id.clone())
         .flat(50.0)
         .in_phase(TransformPhase::Custom(3));
@@ -31,7 +31,7 @@ fn test_bonus_add_flat() {
 
 #[test]
 fn test_bonus_add_percent() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::add(hp_id.clone())
         .percent(0.10)
         .in_phase(TransformPhase::Custom(3));
@@ -43,7 +43,7 @@ fn test_bonus_add_percent() {
 
 #[test]
 fn test_bonus_multiply() {
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
     let bonus = Bonus::mul(atk_id.clone())
         .percent(0.20)
         .in_phase(TransformPhase::Custom(3));
@@ -55,7 +55,7 @@ fn test_bonus_multiply() {
 
 #[test]
 fn test_bonus_override() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
 
     assert_eq!(bonus.target, hp_id);
@@ -65,7 +65,7 @@ fn test_bonus_override() {
 
 #[test]
 fn test_bonus_clamp_min() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::clamp_min(hp_id.clone(), 100.0).in_phase(TransformPhase::Final);
 
     assert_eq!(bonus.target, hp_id);
@@ -75,7 +75,7 @@ fn test_bonus_clamp_min() {
 
 #[test]
 fn test_bonus_clamp_max() {
-    let crit_id = StatId::from_str("CRIT_CHANCE");
+    let crit_id = StatId::from("CRIT_CHANCE");
     let bonus = Bonus::clamp_max(crit_id.clone(), 0.75).in_phase(TransformPhase::Final);
 
     assert_eq!(bonus.target, crit_id);
@@ -89,7 +89,7 @@ fn test_bonus_clamp_max() {
 
 #[test]
 fn test_compile_add_flat() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::add(hp_id.clone())
         .flat(50.0)
         .in_phase(TransformPhase::Custom(3));
@@ -103,7 +103,7 @@ fn test_compile_add_flat() {
 
 #[test]
 fn test_compile_add_percent() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::add(hp_id.clone())
         .percent(0.10)
         .in_phase(TransformPhase::Custom(3));
@@ -117,7 +117,7 @@ fn test_compile_add_percent() {
 
 #[test]
 fn test_compile_multiply() {
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
     let bonus = Bonus::mul(atk_id.clone())
         .percent(0.20)
         .in_phase(TransformPhase::Custom(3));
@@ -131,7 +131,7 @@ fn test_compile_multiply() {
 
 #[test]
 fn test_compile_override() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
 
     let compiled = compile_bonus::<f64>(&bonus);
@@ -143,7 +143,7 @@ fn test_compile_override() {
 
 #[test]
 fn test_compile_clamp_min() {
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
     let bonus = Bonus::clamp_min(hp_id.clone(), 100.0).in_phase(TransformPhase::Final);
 
     let compiled = compile_bonus::<f64>(&bonus);
@@ -155,7 +155,7 @@ fn test_compile_clamp_min() {
 
 #[test]
 fn test_compile_clamp_max() {
-    let crit_id = StatId::from_str("CRIT_CHANCE");
+    let crit_id = StatId::from("CRIT_CHANCE");
     let bonus = Bonus::clamp_max(crit_id.clone(), 0.75).in_phase(TransformPhase::Final);
 
     let compiled = compile_bonus::<f64>(&bonus);
@@ -172,7 +172,7 @@ fn test_compile_clamp_max() {
 #[test]
 fn test_apply_compiled_bonus_to_resolver() {
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -191,8 +191,8 @@ fn test_apply_compiled_bonus_to_resolver() {
 #[test]
 fn test_apply_compiled_bonuses_to_fork() {
     let mut base_resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
-    let atk_id = StatId::from_str("ATK");
+    let hp_id = StatId::from("HP");
+    let atk_id = StatId::from("ATK");
 
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
     base_resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
@@ -223,7 +223,7 @@ fn test_apply_compiled_bonuses_to_fork() {
 #[test]
 fn test_fork_isolation() {
     let mut base_resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
@@ -254,7 +254,7 @@ fn test_fork_isolation() {
 fn test_override_resets_value_in_phase() {
     // Test that override resets the value within its phase (ignores input)
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     // Base HP = 1000
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
@@ -305,7 +305,7 @@ fn test_override_resets_value_in_phase() {
 fn test_override_does_not_affect_previous_phases() {
     // Test that override does not affect previous phases
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     // Base HP = 1000
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
@@ -336,7 +336,7 @@ fn test_override_does_not_affect_previous_phases() {
 fn test_override_composes_with_other_transforms() {
     // Test that override composes correctly with additive/multiplicative transforms
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
@@ -362,7 +362,7 @@ fn test_override_composes_with_other_transforms() {
 fn test_multiple_overrides_last_wins() {
     // Test that multiple overrides in same phase: last one wins (deterministic)
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
@@ -388,7 +388,7 @@ fn test_multiple_overrides_last_wins() {
 fn test_override_does_not_mutate_resolver_state() {
     // Test that override does not mutate resolver state (no transforms removed)
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
@@ -426,7 +426,7 @@ fn test_override_does_not_mutate_resolver_state() {
 fn test_override_works_with_resolver_forks() {
     // Test that override works correctly with resolver forks (fork isolation maintained)
     let mut base_resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
@@ -469,7 +469,7 @@ fn test_override_works_with_resolver_forks() {
 fn test_clamp_bonuses() {
     // Test clamp bonuses work correctly
     let mut resolver = StatResolver::new();
-    let crit_id = StatId::from_str("CRIT_CHANCE");
+    let crit_id = StatId::from("CRIT_CHANCE");
 
     // Set crit chance to 100% (will be clamped)
     resolver.register_source(crit_id.clone(), Box::new(ConstantSource(1.0)));
@@ -489,8 +489,8 @@ fn test_clamp_bonuses() {
 fn test_complete_item_system() {
     // Test a complete item system with multiple bonuses
     let mut base_resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
-    let atk_id = StatId::from_str("ATK");
+    let hp_id = StatId::from("HP");
+    let atk_id = StatId::from("ATK");
 
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
     base_resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));

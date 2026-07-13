@@ -6,7 +6,7 @@
 //! it's simply passed through.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 /// Context information for stat resolution.
 ///
@@ -30,7 +30,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StatContext {
     /// Generic key-value pairs for context data.
-    data: HashMap<String, serde_json::Value>,
+    data: FxHashMap<String, serde_json::Value>,
 }
 
 impl StatContext {

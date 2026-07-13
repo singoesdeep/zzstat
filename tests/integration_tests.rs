@@ -11,11 +11,11 @@ fn test_complete_pipeline() {
     let mut resolver = StatResolver::new();
 
     // Define stats
-    let str_id = StatId::from_str("STR");
-    let dex_id = StatId::from_str("DEX");
-    let atk_id = StatId::from_str("ATK");
-    let crit_id = StatId::from_str("CRIT");
-    let dps_id = StatId::from_str("DPS");
+    let str_id = StatId::from("STR");
+    let dex_id = StatId::from("DEX");
+    let atk_id = StatId::from("ATK");
+    let crit_id = StatId::from("CRIT");
+    let dps_id = StatId::from("DPS");
 
     // Base stats
     resolver.register_source(str_id.clone(), Box::new(ConstantSource(10.0)));
@@ -76,7 +76,7 @@ fn test_complete_pipeline() {
 #[test]
 fn test_additive_sources() {
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     // Multiple sources should be summed
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
@@ -94,7 +94,7 @@ fn test_additive_sources() {
 #[test]
 fn test_transform_chain() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -119,7 +119,7 @@ fn test_transform_chain() {
 #[test]
 fn test_cache_behavior() {
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -146,9 +146,9 @@ fn test_cache_behavior() {
 fn test_complex_dependency_chain() {
     let mut resolver = StatResolver::new();
 
-    let base_id = StatId::from_str("BASE");
-    let mid_id = StatId::from_str("MID");
-    let top_id = StatId::from_str("TOP");
+    let base_id = StatId::from("BASE");
+    let mid_id = StatId::from("MID");
+    let top_id = StatId::from("TOP");
 
     resolver.register_source(base_id.clone(), Box::new(ConstantSource(10.0)));
     resolver.register_source(mid_id.clone(), Box::new(ConstantSource(20.0)));
@@ -183,7 +183,7 @@ fn test_complex_dependency_chain() {
 #[test]
 fn test_breakdown_information() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(50.0)));
@@ -205,7 +205,7 @@ fn test_breakdown_information() {
 #[test]
 fn test_resolver_fork() {
     let mut base = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     // Register source in base
     base.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
@@ -231,7 +231,7 @@ fn test_resolver_fork() {
 #[test]
 fn test_resolver_fork_with_transforms() {
     let mut base = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     base.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
     base.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.5)));
@@ -254,10 +254,10 @@ fn test_resolver_fork_with_transforms() {
 #[test]
 fn test_resolve_batch() {
     let mut resolver = StatResolver::new();
-    let str_id = StatId::from_str("STR");
-    let atk_id = StatId::from_str("ATK");
-    let hp_id = StatId::from_str("HP");
-    let mp_id = StatId::from_str("MP");
+    let str_id = StatId::from("STR");
+    let atk_id = StatId::from("ATK");
+    let hp_id = StatId::from("HP");
+    let mp_id = StatId::from("MP");
 
     resolver.register_source(str_id.clone(), Box::new(ConstantSource(10.0)));
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(50.0)));
@@ -307,7 +307,7 @@ fn test_resolve_batch_empty() {
 #[test]
 fn test_cache_invalidation() {
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -336,8 +336,8 @@ fn test_cache_invalidation() {
 #[test]
 fn test_invalidate_all() {
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
-    let mp_id = StatId::from_str("MP");
+    let hp_id = StatId::from("HP");
+    let mp_id = StatId::from("MP");
 
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
     resolver.register_source(mp_id.clone(), Box::new(ConstantSource(50.0)));
@@ -365,7 +365,7 @@ fn test_transform_phase_ordering() {
     use zzstat::transform::{AdditiveTransform, ClampTransform};
 
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -408,9 +408,10 @@ fn test_custom_transform_phase() {
         fn apply(
             &self,
             input: StatValue,
-            _dependencies: &std::collections::HashMap<StatId, StatValue>,
+            _dependencies: &rustc_hash::FxHashMap<StatId, StatValue>,
             _context: &StatContext,
         ) -> Result<StatValue, StatError> {
+            use zzstat::StatNumeric;
             Ok(input + StatValue::from_f64(self.value))
         }
 
@@ -420,7 +421,7 @@ fn test_custom_transform_phase() {
     }
 
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -447,8 +448,8 @@ fn test_custom_transform_phase() {
 #[test]
 fn test_missing_dependency() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
-    let missing_id = StatId::from_str("MISSING");
+    let atk_id = StatId::from("ATK");
+    let missing_id = StatId::from("MISSING");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -473,7 +474,7 @@ fn test_missing_dependency() {
 #[test]
 fn test_missing_source() {
     let mut resolver = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     // No source registered
     let context = StatContext::new();
@@ -487,11 +488,87 @@ fn test_missing_source() {
     }
 }
 
+/// Test complex buff and debuff interaction on a single stat.
+#[test]
+fn test_buff_debuff_interaction() {
+    let mut resolver = StatResolver::new();
+    let def_id = StatId::from("DEF");
+
+    resolver.register_source(def_id.clone(), Box::new(ConstantSource(200.0)));
+
+    // Armor buff (+50%)
+    resolver.register_transform_with_rule(
+        def_id.clone(),
+        TransformPhase::Multiplicative,
+        StackRule::Multiplicative,
+        Box::new(MultiplicativeTransform::new(1.5)),
+    );
+
+    // Armor break debuff (-30%)
+    resolver.register_transform_with_rule(
+        def_id.clone(),
+        TransformPhase::Multiplicative,
+        StackRule::Multiplicative,
+        Box::new(MultiplicativeTransform::new(0.7)),
+    );
+
+    // Flat shield buff (+50)
+    resolver.register_transform_with_rule(
+        def_id.clone(),
+        TransformPhase::Additive,
+        StackRule::Additive,
+        Box::new(AdditiveTransform::new(50.0)),
+    );
+
+    let context = StatContext::new();
+    let resolved = resolver.resolve(&def_id, &context).unwrap();
+
+    // Additive first: 200 + 50 = 250
+    // Multiplicative next: 250 * 1.5 * 0.7 = 262.5
+    assert!((resolved.value.to_f64() - 262.5).abs() < 1e-9);
+}
+
+/// Test conditional buffs that depend on context (e.g. "if enraged").
+#[test]
+fn test_conditional_buff_scenario() {
+    use zzstat::transform::ConditionalTransform;
+    let mut resolver = StatResolver::new();
+    let atk_id = StatId::from("ATK");
+
+    resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
+
+    let enrage_buff = ConditionalTransform::new(
+        |ctx| ctx.get::<bool>("is_enraged").unwrap_or(false),
+        Box::new(MultiplicativeTransform::new(2.0)),
+        "enrage damage double",
+    );
+
+    resolver.register_transform_with_rule(
+        atk_id.clone(),
+        TransformPhase::Multiplicative,
+        StackRule::Multiplicative,
+        Box::new(enrage_buff),
+    );
+
+    let mut context_normal = StatContext::new();
+    context_normal.set("is_enraged", false);
+    
+    let mut context_enraged = StatContext::new();
+    context_enraged.set("is_enraged", true);
+
+    let resolved_normal = resolver.resolve(&atk_id, &context_normal).unwrap();
+    resolver.invalidate_all();
+    let resolved_enraged = resolver.resolve(&atk_id, &context_enraged).unwrap();
+
+    assert_eq!(resolved_normal.value.to_f64(), 100.0);
+    assert_eq!(resolved_enraged.value.to_f64(), 200.0);
+}
+
 /// Test stat with only transforms (no sources).
 #[test]
 fn test_stat_with_only_transforms() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     // No source, but has transform
     resolver.register_transform(atk_id.clone(), Box::new(AdditiveTransform::new(100.0)));
@@ -507,7 +584,7 @@ fn test_stat_with_only_transforms() {
 #[test]
 fn test_multiple_forks() {
     let mut base = StatResolver::new();
-    let hp_id = StatId::from_str("HP");
+    let hp_id = StatId::from("HP");
 
     base.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -532,7 +609,7 @@ fn test_multiple_forks() {
 #[test]
 fn test_additive_stacking() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -567,7 +644,7 @@ fn test_additive_stacking() {
 #[test]
 fn test_multiplicative_stacking() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -602,7 +679,7 @@ fn test_multiplicative_stacking() {
 #[test]
 fn test_additive_multiplicative_combination() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -648,7 +725,7 @@ fn test_additive_multiplicative_combination() {
 #[test]
 fn test_override_precedence() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -678,7 +755,7 @@ fn test_override_precedence() {
 #[test]
 fn test_diminishing_returns() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -702,7 +779,7 @@ fn test_diminishing_returns() {
 #[test]
 fn test_min_max_clamping() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -739,7 +816,7 @@ fn test_min_max_clamping() {
 #[test]
 fn test_min_clamping() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(50.0)));
 
@@ -788,7 +865,7 @@ fn test_min_clamping() {
 #[test]
 fn test_additive_stacking_zero_base() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(0.0)));
 
@@ -816,7 +893,7 @@ fn test_additive_stacking_zero_base() {
 #[test]
 fn test_additive_stacking_negative() {
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -847,7 +924,7 @@ fn test_minmax_stack_rule() {
     use zzstat::transform::StackRule;
 
     let mut resolver = StatResolver::new();
-    let crit_id = StatId::from_str("CRIT");
+    let crit_id = StatId::from("CRIT");
 
     resolver.register_source(crit_id.clone(), Box::new(ConstantSource(0.9))); // 90% crit
 
@@ -886,7 +963,7 @@ fn test_minmax_stack_rule_mixed_bounds() {
     use zzstat::transform::StackRule;
 
     let mut resolver = StatResolver::new();
-    let move_speed_id = StatId::from_str("MOVE_SPEED");
+    let move_speed_id = StatId::from("MOVE_SPEED");
 
     resolver.register_source(move_speed_id.clone(), Box::new(ConstantSource(50.0)));
 
@@ -925,7 +1002,7 @@ fn test_clamp_with_additive() {
     use zzstat::transform::StackRule;
 
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -962,7 +1039,7 @@ fn test_clamp_with_multiplicative() {
     use zzstat::transform::StackRule;
 
     let mut resolver = StatResolver::new();
-    let atk_id = StatId::from_str("ATK");
+    let atk_id = StatId::from("ATK");
 
     resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
@@ -999,7 +1076,7 @@ fn test_multiple_clamps_minmax_composition() {
     use zzstat::transform::StackRule;
 
     let mut resolver = StatResolver::new();
-    let stat_id = StatId::from_str("STAT");
+    let stat_id = StatId::from("STAT");
 
     resolver.register_source(stat_id.clone(), Box::new(ConstantSource(150.0)));
 
@@ -1067,7 +1144,7 @@ fn test_clamp_deterministic_ordering() {
 
     let mut resolver1 = StatResolver::new();
     let mut resolver2 = StatResolver::new();
-    let stat_id = StatId::from_str("STAT");
+    let stat_id = StatId::from("STAT");
 
     resolver1.register_source(stat_id.clone(), Box::new(ConstantSource(150.0)));
     resolver2.register_source(stat_id.clone(), Box::new(ConstantSource(150.0)));

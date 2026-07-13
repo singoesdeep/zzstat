@@ -24,7 +24,7 @@ fn format_cycle_path(path: &[StatId]) -> String {
 /// ```rust
 /// use zzstat::{StatError, StatId};
 ///
-/// let err = StatError::MissingSource(StatId::from_str("HP"));
+/// let err = StatError::MissingSource(StatId::from("HP"));
 /// println!("{}", err); // "Missing source for stat: HP"
 /// ```
 #[derive(Debug, Error, Clone, PartialEq)]
@@ -66,15 +66,15 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = StatError::MissingSource(StatId::from_str("HP"));
+        let err = StatError::MissingSource(StatId::from("HP"));
         assert!(err.to_string().contains("HP"));
     }
 
     #[test]
     fn test_cycle_error_display() {
-        let a = StatId::from_str("A");
-        let b = StatId::from_str("B");
-        let c = StatId::from_str("C");
+        let a = StatId::from("A");
+        let b = StatId::from("B");
+        let c = StatId::from("C");
         let err = StatError::Cycle {
             path: vec![a.clone(), b.clone(), c.clone(), a.clone()],
         };

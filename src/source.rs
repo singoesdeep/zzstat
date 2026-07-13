@@ -7,7 +7,7 @@
 use crate::context::StatContext;
 use crate::numeric::{StatNumeric, StatValue};
 use crate::stat_id::StatId;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 /// Trait for stat sources that produce base values.
 ///
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 ///
 /// let source = ConstantSource(100.0);
 /// let context = StatContext::new();
-/// let stat_id = StatId::from_str("HP");
+/// let stat_id = StatId::from("HP");
 ///
 /// let value = source.get_value(&stat_id, &context);
 /// assert_eq!(value, 100.0);
@@ -55,7 +55,7 @@ pub trait StatSource: Send + Sync {
 ///
 /// let source = ConstantSource(100.0);
 /// let context = StatContext::new();
-/// let stat_id = StatId::from_str("HP");
+/// let stat_id = StatId::from("HP");
 ///
 /// assert_eq!(source.get_value(&stat_id, &context), 100.0);
 /// ```
@@ -81,19 +81,19 @@ impl StatSource for ConstantSource {
 /// use std::collections::HashMap;
 ///
 /// let mut values = HashMap::new();
-/// values.insert(StatId::from_str("HP"), 100.0);
-/// values.insert(StatId::from_str("MP"), 50.0);
+/// values.insert(StatId::from("HP"), 100.0);
+/// values.insert(StatId::from("MP"), 50.0);
 ///
 /// let source = MapSource::new(values);
 /// let context = StatContext::new();
 ///
-/// assert_eq!(source.get_value(&StatId::from_str("HP"), &context), 100.0);
-/// assert_eq!(source.get_value(&StatId::from_str("MP"), &context), 50.0);
-/// assert_eq!(source.get_value(&StatId::from_str("ATK"), &context), 0.0);
+/// assert_eq!(source.get_value(&StatId::from("HP"), &context), 100.0);
+/// assert_eq!(source.get_value(&StatId::from("MP"), &context), 50.0);
+/// assert_eq!(source.get_value(&StatId::from("ATK"), &context), 0.0);
 /// ```
 #[derive(Debug, Clone)]
 pub struct MapSource {
-    values: HashMap<StatId, f64>,
+    values: FxHashMap<StatId, f64>,
 }
 
 impl MapSource {
@@ -107,11 +107,13 @@ impl MapSource {
     /// use std::collections::HashMap;
     ///
     /// let mut values = HashMap::new();
-    /// values.insert(StatId::from_str("HP"), 100.0);
+    /// values.insert(StatId::from("HP"), 100.0);
     /// let source = MapSource::new(values);
     /// ```
-    pub fn new(values: HashMap<StatId, f64>) -> Self {
-        Self { values }
+    pub fn new<I: IntoIterator<Item = (StatId, f64)>>(values: I) -> Self {
+        Self {
+            values: values.into_iter().collect(),
+        }
     }
 
     /// Create a new empty `MapSource`.
@@ -122,11 +124,11 @@ impl MapSource {
     /// use zzstat::source::MapSource;
     ///
     /// let mut source = MapSource::empty();
-    /// source.insert(zzstat::StatId::from_str("HP"), 100.0);
+    /// source.insert(zzstat::StatId::from("HP"), 100.0);
     /// ```
     pub fn empty() -> Self {
         Self {
-            values: HashMap::new(),
+            values: FxHashMap::default(),
         }
     }
 
@@ -138,7 +140,7 @@ impl MapSource {
     /// use zzstat::source::MapSource;
     ///
     /// let mut source = MapSource::empty();
-    /// source.insert(zzstat::StatId::from_str("HP"), 100.0);
+    /// source.insert(zzstat::StatId::from("HP"), 100.0);
     /// ```
     pub fn insert(&mut self, stat_id: StatId, value: f64) {
         self.values.insert(stat_id, value);
@@ -159,7 +161,7 @@ mod tests {
     fn test_constant_source() {
         let source = ConstantSource(100.0);
         let context = StatContext::new();
-        let stat_id = StatId::from_str("HP");
+        let stat_id = StatId::from("HP");
 
         assert_eq!(
             source.get_value(&stat_id, &context),
@@ -170,8 +172,8 @@ mod tests {
     #[test]
     fn test_map_source() {
         let mut source = MapSource::empty();
-        let hp_id = StatId::from_str("HP");
-        let atk_id = StatId::from_str("ATK");
+        let hp_id = StatId::from("HP");
+        let atk_id = StatId::from("ATK");
 
         source.insert(hp_id.clone(), 100.0);
         source.insert(atk_id.clone(), 50.0);
@@ -186,7 +188,7 @@ mod tests {
             StatValue::from_f64(50.0)
         );
         assert_eq!(
-            source.get_value(&StatId::from_str("MISSING"), &context),
+            source.get_value(&StatId::from("MISSING"), &context),
             StatValue::from_f64(0.0)
         );
     }
@@ -195,18 +197,18 @@ mod tests {
     fn test_map_source_new() {
         use std::collections::HashMap;
         let mut values = HashMap::new();
-        values.insert(StatId::from_str("HP"), 100.0);
-        values.insert(StatId::from_str("MP"), 50.0);
+        values.insert(StatId::from("HP"), 100.0);
+        values.insert(StatId::from("MP"), 50.0);
 
         let source = MapSource::new(values);
         let context = StatContext::new();
 
         assert_eq!(
-            source.get_value(&StatId::from_str("HP"), &context),
+            source.get_value(&StatId::from("HP"), &context),
             StatValue::from_f64(100.0)
         );
         assert_eq!(
-            source.get_value(&StatId::from_str("MP"), &context),
+            source.get_value(&StatId::from("MP"), &context),
             StatValue::from_f64(50.0)
         );
     }
@@ -214,7 +216,7 @@ mod tests {
     #[test]
     fn test_map_source_insert_overwrite() {
         let mut source = MapSource::empty();
-        let hp_id = StatId::from_str("HP");
+        let hp_id = StatId::from("HP");
 
         source.insert(hp_id.clone(), 100.0);
         let context = StatContext::new();
@@ -236,7 +238,7 @@ mod tests {
         let context = StatContext::new();
 
         assert_eq!(
-            source.get_value(&StatId::from_str("ANY"), &context),
+            source.get_value(&StatId::from("ANY"), &context),
             StatValue::from_f64(0.0)
         );
     }
@@ -245,7 +247,7 @@ mod tests {
     fn test_constant_source_negative() {
         let source = ConstantSource(-50.0);
         let context = StatContext::new();
-        let stat_id = StatId::from_str("HP");
+        let stat_id = StatId::from("HP");
 
         assert_eq!(
             source.get_value(&stat_id, &context),
@@ -257,7 +259,7 @@ mod tests {
     fn test_constant_source_zero() {
         let source = ConstantSource(0.0);
         let context = StatContext::new();
-        let stat_id = StatId::from_str("HP");
+        let stat_id = StatId::from("HP");
 
         assert_eq!(
             source.get_value(&stat_id, &context),
@@ -271,7 +273,7 @@ mod tests {
         let source2 = source1.clone();
 
         let context = StatContext::new();
-        let stat_id = StatId::from_str("HP");
+        let stat_id = StatId::from("HP");
 
         assert_eq!(
             source1.get_value(&stat_id, &context),
