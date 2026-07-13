@@ -4,7 +4,7 @@
 //! when the `fixed-point` feature is enabled, or uses `f64` by default.
 
 use std::fmt;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[cfg(feature = "fixed-point")]
 use serde::{Deserialize, Serialize};
