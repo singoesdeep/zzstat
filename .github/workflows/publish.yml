@@ -33,11 +33,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Run tests
-        run: cargo test --all-features
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
-      - name: Build package
-        run: cargo build --release
+      - name: Lint with Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --all-targets --all-features
 
       - name: Publish to crates.io
         env:
