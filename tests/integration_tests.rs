@@ -53,23 +53,23 @@ fn test_complete_pipeline() {
 
     // Verify STR
     let str_resolved = results.get(&str_id).unwrap();
-    assert_eq!(str_resolved.value, 10.0);
+    assert_eq!(str_resolved.value.to_f64(), 10.0);
 
     // Verify DEX
     let dex_resolved = results.get(&dex_id).unwrap();
-    assert_eq!(dex_resolved.value, 15.0);
+    assert_eq!(dex_resolved.value.to_f64(), 15.0);
 
     // Verify ATK: 50 (base) + 10 (STR) * 2 = 70
     let atk_resolved = results.get(&atk_id).unwrap();
-    assert_eq!(atk_resolved.value, 70.0);
+    assert_eq!(atk_resolved.value.to_f64(), 70.0);
 
     // Verify CRIT: 5 (base) + 15 (DEX) * 1.5 = 27.5
     let crit_resolved = results.get(&crit_id).unwrap();
-    assert_eq!(crit_resolved.value, 27.5);
+    assert_eq!(crit_resolved.value.to_f64(), 27.5);
 
     // Verify DPS: 0 (base) + 70 (ATK) * 1 + 27.5 (CRIT) * 0.1 = 72.75
     let dps_resolved = results.get(&dps_id).unwrap();
-    assert_eq!(dps_resolved.value, 72.75);
+    assert_eq!(dps_resolved.value.to_f64(), 72.75);
 }
 
 /// Test multiple sources being summed (additive).
@@ -86,7 +86,7 @@ fn test_additive_sources() {
     let context = StatContext::new();
     let resolved = resolver.resolve(&hp_id, &context).unwrap();
 
-    assert_eq!(resolved.value, 175.0); // 100 + 50 + 25
+    assert_eq!(resolved.value.to_f64(), 175.0); // 100 + 50 + 25
     assert_eq!(resolved.sources.len(), 3);
 }
 
@@ -127,18 +127,18 @@ fn test_cache_behavior() {
 
     // First resolve
     let resolved1 = resolver.resolve(&hp_id, &context).unwrap();
-    assert_eq!(resolved1.value, 100.0);
+    assert_eq!(resolved1.value.to_f64(), 100.0);
 
     // Second resolve should use cache
     let resolved2 = resolver.resolve(&hp_id, &context).unwrap();
-    assert_eq!(resolved2.value, 100.0);
+    assert_eq!(resolved2.value.to_f64(), 100.0);
 
     // Add new source and invalidate
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(50.0)));
 
     // Should recalculate
     let resolved3 = resolver.resolve(&hp_id, &context).unwrap();
-    assert_eq!(resolved3.value, 150.0);
+    assert_eq!(resolved3.value.to_f64(), 150.0);
 }
 
 /// Test complex dependency chain.
@@ -170,13 +170,13 @@ fn test_complex_dependency_chain() {
     let results = resolver.resolve_all(&context).unwrap();
 
     // BASE: 10
-    assert_eq!(results.get(&base_id).unwrap().value, 10.0);
+    assert_eq!(results.get(&base_id).unwrap().value.to_f64(), 10.0);
 
     // MID: 20 + 10 = 30
-    assert_eq!(results.get(&mid_id).unwrap().value, 30.0);
+    assert_eq!(results.get(&mid_id).unwrap().value.to_f64(), 30.0);
 
     // TOP: 30 + 30 = 60
-    assert_eq!(results.get(&top_id).unwrap().value, 60.0);
+    assert_eq!(results.get(&top_id).unwrap().value.to_f64(), 60.0);
 }
 
 /// Test breakdown information for debugging.
@@ -198,7 +198,7 @@ fn test_breakdown_information() {
 
     // Get breakdown from resolver
     let breakdown = resolver.get_breakdown(&atk_id).unwrap();
-    assert_eq!(breakdown.value, 225.0); // (100 + 50) * 1.5
+    assert_eq!(breakdown.value.to_f64(), 225.0); // (100 + 50) * 1.5
 }
 
 /// Test resolver forking (copy-on-write).
@@ -220,11 +220,11 @@ fn test_resolver_fork() {
 
     // Base should still have only 100
     let base_resolved = base.resolve(&hp_id, &context).unwrap();
-    assert_eq!(base_resolved.value, 100.0);
+    assert_eq!(base_resolved.value.to_f64(), 100.0);
 
     // Fork should have 150 (100 + 50)
     let fork_resolved = fork.resolve(&hp_id, &context).unwrap();
-    assert_eq!(fork_resolved.value, 150.0);
+    assert_eq!(fork_resolved.value.to_f64(), 150.0);
 }
 
 /// Test resolver fork with transforms.
@@ -243,7 +243,7 @@ fn test_resolver_fork_with_transforms() {
 
     // Base: 100 * 1.5 = 150
     let base_resolved = base.resolve(&atk_id, &context).unwrap();
-    assert_eq!(base_resolved.value, 150.0);
+    assert_eq!(base_resolved.value.to_f64(), 150.0);
 
     // Fork: 100 * 1.5 * 1.2 = 180 (both transforms from base and fork)
     let fork_resolved = fork.resolve(&atk_id, &context).unwrap();
@@ -288,9 +288,9 @@ fn test_resolve_batch() {
     assert!(!results.contains_key(&mp_id));
 
     // Verify values
-    assert_eq!(results[&str_id].value, 10.0);
-    assert_eq!(results[&atk_id].value, 70.0); // 50 + 10*2
-    assert_eq!(results[&hp_id].value, 100.0);
+    assert_eq!(results[&str_id].value.to_f64(), 10.0);
+    assert_eq!(results[&atk_id].value.to_f64(), 70.0); // 50 + 10*2
+    assert_eq!(results[&hp_id].value.to_f64(), 100.0);
 }
 
 /// Test resolve_batch with empty targets.
@@ -315,11 +315,11 @@ fn test_cache_invalidation() {
 
     // First resolve
     let resolved1 = resolver.resolve(&hp_id, &context).unwrap();
-    assert_eq!(resolved1.value, 100.0);
+    assert_eq!(resolved1.value.to_f64(), 100.0);
 
     // Should be cached
     let resolved2 = resolver.resolve(&hp_id, &context).unwrap();
-    assert_eq!(resolved2.value, 100.0);
+    assert_eq!(resolved2.value.to_f64(), 100.0);
 
     // Invalidate
     resolver.invalidate(&hp_id);
@@ -329,7 +329,7 @@ fn test_cache_invalidation() {
 
     // Should recalculate
     let resolved3 = resolver.resolve(&hp_id, &context).unwrap();
-    assert_eq!(resolved3.value, 150.0);
+    assert_eq!(resolved3.value.to_f64(), 150.0);
 }
 
 /// Test invalidate_all.
@@ -383,7 +383,7 @@ fn test_transform_phase_ordering() {
     let resolved = resolver.resolve(&atk_id, &context).unwrap();
 
     // Order: 100 (base) + 50 (additive) = 150, * 2 (multiplicative) = 300, clamp(0, 150) = 150
-    assert_eq!(resolved.value, 150.0);
+    assert_eq!(resolved.value.to_f64(), 150.0);
 }
 
 /// Test custom transform phase.
@@ -441,7 +441,7 @@ fn test_custom_transform_phase() {
     let resolved = resolver.resolve(&atk_id, &context).unwrap();
 
     // Order: 100 * 2 (multiplicative) = 200, + 50 (custom phase 10) = 250
-    assert_eq!(resolved.value, 250.0);
+    assert_eq!(resolved.value.to_f64(), 250.0);
 }
 
 /// Test missing dependency (resolves to 0 by default).
@@ -467,7 +467,7 @@ fn test_missing_dependency() {
     // So ATK = 100 + 0 * 1.0 = 100
     assert!(result.is_ok());
     let resolved = result.unwrap();
-    assert_eq!(resolved.value, 100.0); // 100 + 0*1 = 100
+    assert_eq!(resolved.value.to_f64(), 100.0); // 100 + 0*1 = 100
 }
 
 /// Test missing source error.
@@ -577,7 +577,7 @@ fn test_stat_with_only_transforms() {
     let resolved = resolver.resolve(&atk_id, &context).unwrap();
 
     // Should default to 0 + 100 = 100
-    assert_eq!(resolved.value, 100.0);
+    assert_eq!(resolved.value.to_f64(), 100.0);
 }
 
 /// Test multiple forks from same base.
@@ -600,9 +600,9 @@ fn test_multiple_forks() {
     let fork1_resolved = fork1.resolve(&hp_id, &context).unwrap();
     let fork2_resolved = fork2.resolve(&hp_id, &context).unwrap();
 
-    assert_eq!(base_resolved.value, 100.0);
-    assert_eq!(fork1_resolved.value, 110.0);
-    assert_eq!(fork2_resolved.value, 120.0);
+    assert_eq!(base_resolved.value.to_f64(), 100.0);
+    assert_eq!(fork1_resolved.value.to_f64(), 110.0);
+    assert_eq!(fork2_resolved.value.to_f64(), 120.0);
 }
 
 /// Test additive stacking: multiple additive transforms should sum their deltas.

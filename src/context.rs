@@ -135,13 +135,13 @@ mod tests {
     fn test_context_different_types() {
         let mut ctx = StatContext::new();
         ctx.set("int", 42);
-        ctx.set("float", 3.14);
+        ctx.set("float", 3.5);
         ctx.set("bool", true);
         ctx.set("string", "hello");
         ctx.set("vec", vec![1, 2, 3]);
 
         assert_eq!(ctx.get::<i32>("int"), Some(42));
-        assert_eq!(ctx.get::<f64>("float"), Some(3.14));
+        assert_eq!(ctx.get::<f64>("float"), Some(3.5));
         assert_eq!(ctx.get::<bool>("bool"), Some(true));
         assert_eq!(ctx.get::<String>("string"), Some("hello".to_string()));
         assert_eq!(ctx.get::<Vec<i32>>("vec"), Some(vec![1, 2, 3]));

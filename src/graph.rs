@@ -514,7 +514,7 @@ mod tests {
         // HP has no dependencies
 
         // Extract subgraph for ATK
-        let subgraph = graph.subgraph_for_targets(&[atk_id.clone()]);
+        let subgraph = graph.subgraph_for_targets(std::slice::from_ref(&atk_id));
 
         // Should contain ATK and STR
         assert!(subgraph.contains_node(&atk_id));
@@ -569,7 +569,7 @@ mod tests {
         graph.add_edge(top2_id.clone(), mid2_id.clone());
 
         // Extract subgraph for TOP1 only
-        let subgraph = graph.subgraph_for_targets(&[top1_id.clone()]);
+        let subgraph = graph.subgraph_for_targets(std::slice::from_ref(&top1_id));
 
         // Should contain TOP1, MID1, and BASE
         assert!(subgraph.contains_node(&top1_id));
@@ -597,7 +597,7 @@ mod tests {
         graph.add_node(existing_id.clone());
 
         // Extract subgraph for non-existent node
-        let subgraph = graph.subgraph_for_targets(&[nonexistent_id.clone()]);
+        let subgraph = graph.subgraph_for_targets(std::slice::from_ref(&nonexistent_id));
 
         // Should not contain the non-existent node
         assert!(!subgraph.contains_node(&nonexistent_id));

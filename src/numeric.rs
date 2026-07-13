@@ -4,7 +4,7 @@
 //! when the `fixed-point` feature is enabled, or uses `f64` by default.
 
 use std::fmt;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[cfg(feature = "fixed-point")]
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,6 @@ pub trait StatNumeric:
     fn clamp(self, min: Self, max: Self) -> Self;
 }
 
-#[cfg(not(feature = "fixed-point"))]
 impl StatNumeric for f64 {
     fn zero() -> Self {
         0.0
@@ -111,21 +110,6 @@ impl FixedPoint {
         Self { value, scale }
     }
 
-    /// Create a fixed-point number from an f64.
-    ///
-    /// Uses the default scale (4 decimal places).
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::numeric::FixedPoint;
-    ///
-    /// let fp = FixedPoint::from_f64(1.2345);
-    /// ```
-    pub fn from_f64(f: f64) -> Self {
-        Self::from_f64_with_scale(f, Self::DEFAULT_SCALE)
-    }
-
     /// Create a fixed-point number from an f64 with a specific scale.
     ///
     /// # Examples
@@ -139,21 +123,6 @@ impl FixedPoint {
         let multiplier = 10_i64.pow(scale as u32);
         let value = (f * multiplier as f64).round() as i64;
         Self { value, scale }
-    }
-
-    /// Convert to f64.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::numeric::FixedPoint;
-    ///
-    /// let fp = FixedPoint::new(12345, 4);
-    /// assert!((fp.to_f64() - 1.2345).abs() < 0.0001);
-    /// ```
-    pub fn to_f64(self) -> f64 {
-        let divisor = 10_f64.powi(self.scale as i32);
-        self.value as f64 / divisor
     }
 
     /// Get the raw integer value.
@@ -272,6 +241,34 @@ impl Div for FixedPoint {
 }
 
 #[cfg(feature = "fixed-point")]
+impl AddAssign for FixedPoint {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other;
+    }
+}
+
+#[cfg(feature = "fixed-point")]
+impl SubAssign for FixedPoint {
+    fn sub_assign(&mut self, other: Self) {
+        *self = *self - other;
+    }
+}
+
+#[cfg(feature = "fixed-point")]
+impl MulAssign for FixedPoint {
+    fn mul_assign(&mut self, other: Self) {
+        *self = *self * other;
+    }
+}
+
+#[cfg(feature = "fixed-point")]
+impl DivAssign for FixedPoint {
+    fn div_assign(&mut self, other: Self) {
+        *self = *self / other;
+    }
+}
+
+#[cfg(feature = "fixed-point")]
 impl StatNumeric for FixedPoint {
     fn zero() -> Self {
         Self {
@@ -288,11 +285,12 @@ impl StatNumeric for FixedPoint {
     }
 
     fn from_f64(f: f64) -> Self {
-        Self::from_f64(f)
+        Self::from_f64_with_scale(f, Self::DEFAULT_SCALE)
     }
 
     fn to_f64(self) -> f64 {
-        self.to_f64()
+        let divisor = 10_f64.powi(self.scale as i32);
+        self.value as f64 / divisor
     }
 
     fn clamp(self, min: Self, max: Self) -> Self {
@@ -309,7 +307,7 @@ impl StatNumeric for FixedPoint {
 #[cfg(feature = "fixed-point")]
 impl fmt::Display for FixedPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:.4}", self.to_f64())
+        write!(f, "{:.4}", StatNumeric::to_f64(*self))
     }
 }
 

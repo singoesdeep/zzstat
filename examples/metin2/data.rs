@@ -59,6 +59,7 @@ pub struct ConstantsDef {
 pub struct Metin2Data {
     pub weapons: HashMap<u32, WeaponDef>,
     pub monsters: HashMap<u32, MonsterDef>,
+    #[allow(dead_code)]
     pub constants: ConstantsDef,
 }
 

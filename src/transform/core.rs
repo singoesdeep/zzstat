@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_stack_rule_priority() {
-        let rules = vec![
+        let rules = [
             StackRule::Override,
             StackRule::Additive,
             StackRule::Multiplicative,

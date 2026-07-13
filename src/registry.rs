@@ -61,6 +61,7 @@ impl StatRegistry {
         Arc::strong_count(&self.base) > 1
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_sources(&self, stat_id: &StatId) -> Option<&Vec<Box<dyn StatSource>>> {
         self.overlay
             .sources
