@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::prelude::*;
 use std::collections::HashMap;

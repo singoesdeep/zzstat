@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, LoadContext};
 use bevy::reflect::TypePath;
 use serde::{Deserialize, Serialize};
