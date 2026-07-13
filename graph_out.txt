@@ -1,0 +1,45 @@
+graph TD
+    WEAPON_MAX[("WEAPON_MAX")]
+    WEAPON_MAX_src_b0>"ConstantSource(181.0)"]
+    WEAPON_MAX_src_b0 -.-> WEAPON_MAX
+    WEAPON_MIN[("WEAPON_MIN")]
+    WEAPON_MIN_src_b0>"ConstantSource(159.0)"]
+    WEAPON_MIN_src_b0 -.-> WEAPON_MIN
+    MAIN_ATTACK[("MAIN_ATTACK")]
+    MAIN_ATTACK_tr_b0[/"scale(LEVEL, 2.00)"/]
+    MAIN_ATTACK_tr_b0 -.-> MAIN_ATTACK
+    MAIN_ATTACK_tr_b1[/"scale(STR, 2.00)"/]
+    MAIN_ATTACK_tr_b1 -.-> MAIN_ATTACK
+    MONSTER_DEFENSE[("MONSTER_DEFENSE")]
+    MONSTER_DEFENSE_src_b0>"ConstantSource(146.0)"]
+    MONSTER_DEFENSE_src_b0 -.-> MONSTER_DEFENSE
+    RAW_DAMAGE[("RAW_DAMAGE")]
+    RAW_DAMAGE_tr_b0[/"scale(MAIN_ATTACK, 1.00)"/]
+    RAW_DAMAGE_tr_b0 -.-> RAW_DAMAGE
+    RAW_DAMAGE_tr_b1[/"scale(WEAPON_AVG, 2.00)"/]
+    RAW_DAMAGE_tr_b1 -.-> RAW_DAMAGE
+    BASE_DAMAGE[("BASE_DAMAGE")]
+    BASE_DAMAGE_tr_b0[/"scale(RAW_DAMAGE, 1.00)"/]
+    BASE_DAMAGE_tr_b0 -.-> BASE_DAMAGE
+    BASE_DAMAGE_tr_b1[/"scale(MONSTER_DEFENSE, -1.00)"/]
+    BASE_DAMAGE_tr_b1 -.-> BASE_DAMAGE
+    LEVEL[("LEVEL")]
+    LEVEL_src_b0>"ConstantSource(105.0)"]
+    LEVEL_src_b0 -.-> LEVEL
+    STR[("STR")]
+    STR_src_b0>"ConstantSource(90.0)"]
+    STR_src_b0 -.-> STR
+    WEAPON_AVG[("WEAPON_AVG")]
+    WEAPON_AVG_tr_b0[/"scale(WEAPON_MIN, 0.50)"/]
+    WEAPON_AVG_tr_b0 -.-> WEAPON_AVG
+    WEAPON_AVG_tr_b1[/"scale(WEAPON_MAX, 0.50)"/]
+    WEAPON_AVG_tr_b1 -.-> WEAPON_AVG
+    LEVEL ==> MAIN_ATTACK
+    STR ==> MAIN_ATTACK
+    MAIN_ATTACK ==> RAW_DAMAGE
+    WEAPON_AVG ==> RAW_DAMAGE
+    RAW_DAMAGE ==> BASE_DAMAGE
+    MONSTER_DEFENSE ==> BASE_DAMAGE
+    WEAPON_MIN ==> WEAPON_AVG
+    WEAPON_MAX ==> WEAPON_AVG
+

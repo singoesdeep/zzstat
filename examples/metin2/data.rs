@@ -1,14 +1,14 @@
+use bevy::asset::{Asset, AssetLoader, AsyncReadExt, LoadContext, io::Reader};
+use bevy::reflect::TypePath;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeaponDef {
     pub id: u32,
     pub r#type: u32,
     pub is_special: bool,
-    pub attack_values: serde_json::Value, // Either flat [min_magic, max_magic, min_attack, max_attack] or 2D array if special
+    pub attack_values: serde_json::Value,
     pub growth: Vec<f64>,
 }
 
@@ -42,7 +42,7 @@ impl MonsterDef {
     }
 
     pub fn defense(&self) -> f64 {
-        self.data[10].as_f64().unwrap_or(0.0) // Index 10 is typically defense in monsterData (from Calculator.js)
+        self.data[10].as_f64().unwrap_or(0.0)
     }
 }
 
@@ -63,31 +63,32 @@ pub struct Metin2Data {
     pub constants: ConstantsDef,
 }
 
-impl Metin2Data {
-    pub fn load(base_dir: impl AsRef<Path>) -> Result<Self, Box<dyn std::error::Error>> {
-        let base = base_dir.as_ref();
+// --- Bevy Asset Integration ---
 
-        let w_str = fs::read_to_string(base.join("weapons.json"))?;
-        let weapons_list: Vec<WeaponDef> = serde_json::from_str(&w_str)?;
-        let mut weapons = HashMap::new();
-        for w in weapons_list {
-            weapons.insert(w.id, w);
-        }
+#[derive(Asset, TypePath, Debug)]
+pub struct JsonAsset(pub String);
 
-        let m_str = fs::read_to_string(base.join("monsters.json"))?;
-        let monsters_list: Vec<MonsterDef> = serde_json::from_str(&m_str)?;
-        let mut monsters = HashMap::new();
-        for m in monsters_list {
-            monsters.insert(m.id, m);
-        }
+#[derive(Default)]
+pub struct JsonLoader;
 
-        let c_str = fs::read_to_string(base.join("constants.json"))?;
-        let constants: ConstantsDef = serde_json::from_str(&c_str)?;
+impl AssetLoader for JsonLoader {
+    type Asset = JsonAsset;
+    type Settings = ();
+    type Error = std::io::Error;
 
-        Ok(Self {
-            weapons,
-            monsters,
-            constants,
-        })
+    async fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader<'_>,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let str = String::from_utf8(bytes).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(JsonAsset(str))
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["json"]
     }
 }

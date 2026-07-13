@@ -1,6 +1,6 @@
 [package]
 name = "zzstat"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 description = "A deterministic, hardcode-free stat calculation engine designed for MMORPGs"
@@ -29,3 +29,6 @@ fixed-point = []
 [[example]]
 name = "metin2"
 path = "examples/metin2/main.rs"
+
+[dev-dependencies]
+bevy = { version = "0.14", default-features = false, features = ["bevy_asset", "bevy_state"] }
