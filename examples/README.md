@@ -1,94 +1,79 @@
 # zzstat Examples
 
-This directory contains example programs demonstrating how to use the zzstat stat engine.
+This directory contains example programs demonstrating how to use the `zzstat` stat engine in various real-world game development scenarios. The examples are numbered in order of complexity.
 
 ## Examples
 
-### `basic.rs`
-**Basic stat resolution with sources and transforms**
+### `01_template_loader.rs`
+**Data-Driven Initialization via JSON**
 
 Demonstrates:
-- Registering multiple stat sources (additive)
-- Applying transforms (percentage modifiers)
-- Resolving stats and viewing breakdowns
+- Loading a complete character archetype from JSON without hardcoding any Rust logic.
+- Using `StatContext` to apply conditional logic dynamically (e.g., adding DEF only when in `DEFENSIVE` stance).
+- Converting parsed JSON templates into a `StatResolver`.
 
-Run with: `cargo run --example basic`
+Run with: `cargo run --example 01_template_loader`
 
-### `dependencies.rs`
-**Stats that depend on other stats**
-
-Demonstrates:
-- Creating derived stats
-- Dependency chains (STR → ATK, DEX → CRIT)
-- Automatic resolution order using topological sort
-
-Run with: `cargo run --example dependencies`
-
-### `complex.rs`
-**Complex character stat system**
+### `02_resource_pool.rs`
+**State Management and Event Triggers**
 
 Demonstrates:
-- Multiple sources per stat
-- Transform chains (multiple transforms in sequence)
-- Multi-level dependencies (BASE → MID → TOP)
-- Clamping values
-- Real-world character stat calculations
+- Tracking stateful resources like Current HP/MP against a max value resolved by `StatResolver`.
+- Using `TimeEffect` to apply Damage-over-Time (e.g., Poison).
+- Firing `ThresholdTrigger` events when a condition is met (e.g., HP falls to 0 triggering `DEATH`).
 
-Run with: `cargo run --example complex`
+Run with: `cargo run --example 02_resource_pool`
 
-### `cycle_detection.rs`
-**Error handling for circular dependencies**
+### `03_status_effects.rs`
+**Temporary Buffs and Debuffs (Copy-on-Write)**
 
 Demonstrates:
-- What happens when you create circular dependencies
-- How the system detects and reports cycles
-- Comparison with valid dependency chains
+- Using `StatusManager` to manage temporary stat overlays.
+- How buffs dynamically compose on top of the base stats using efficient `fork()` mechanics.
+- Dealing with stacks (`Accumulate`, `Refresh`) and expiring effects over ticks.
 
-Run with: `cargo run --example cycle_detection`
+Run with: `cargo run --example 03_status_effects`
 
-### `context.rs`
-**Using StatContext for conditional calculations**
-
-Demonstrates:
-- Using StatContext to pass game state
-- Conditional transforms based on context
-- Different stat values in different contexts (combat, PvP zones, etc.)
-- Cache invalidation when context changes
-
-Run with: `cargo run --example context`
-
-### `advanced.rs`
-**Advanced features: forking, batch resolution, and transform phases**
+### `04_combat_engine.rs`
+**AST-based Combat Formula Evaluation**
 
 Demonstrates:
-- Resolver forking (copy-on-write semantics)
-- Batch resolution for efficient stat resolution
-- Transform phase ordering (Additive → Multiplicative → Final)
-- Multiple forks from the same base resolver
-- Subgraph extraction for targeted resolution
+- Parsing complex attack actions defined as an Abstract Syntax Tree (AST) in JSON.
+- Passing `attacker` and `defender` resolvers into a single context.
+- Handling stochastic (random) mechanics deterministically through closures (e.g., Dodge Chance, Critical Hit Chance).
 
-Run with: `cargo run --example advanced`
+Run with: `cargo run --example 04_combat_engine`
+
+### `metin2/`
+**Full MMORPG Damage Simulator**
+
+A comprehensive simulation mimicking the damage pipeline of the classic MMORPG, Metin2.
+Demonstrates:
+- Creating custom entity wrappers (`Metin2Player`, `Metin2Monster`, `Weapon`).
+- Simulating the complete damage cycle: `Base Damage -> Critical -> Piercing -> Defensive mitigation -> Resistances`.
+- Combining multiple `zzstat` concepts together into a fully structured codebase.
+
+Run with: `cargo run --example metin2`
+
+---
 
 ## Running Examples
 
-To run any example:
+To run any single-file example:
 
 ```bash
 cargo run --example <example_name>
 ```
 
-For example:
+For the Metin2 full simulation:
 ```bash
-cargo run --example basic
-cargo run --example dependencies
-cargo run --example complex
+cargo run --example metin2
 ```
 
 ## Building All Examples
 
-To build all examples without running them:
+To compile all examples without running them, which is useful for checking compilation errors:
 
 ```bash
 cargo build --examples
 ```
-
