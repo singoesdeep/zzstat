@@ -1,6 +1,6 @@
 use crate::context::StatContext;
 use crate::error::StatError;
-use crate::numeric::{StatValue, StatNumeric};
+use crate::numeric::StatValue;
 use crate::stat_id::StatId;
 use rustc_hash::FxHashMap;
 use serde::{Serialize, Deserialize};

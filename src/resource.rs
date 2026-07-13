@@ -7,7 +7,7 @@ use crate::context::StatContext;
 use crate::resolver::StatResolver;
 use crate::stat_id::StatId;
 use serde::{Deserialize, Serialize};
-use crate::numeric::{StatValue, StatNumeric};
+use crate::numeric::StatNumeric;
 
 /// Condition for a threshold trigger.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

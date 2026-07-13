@@ -4,7 +4,6 @@
 //! using an entirely data-driven Combat AST (Abstract Syntax Tree) with 
 //! deterministic RNG support for Dodge and Crit.
 
-use std::str::FromStr;
 use zzstat::context::StatContext;
 use zzstat::resolver::StatResolver;
 use zzstat::stat_id::StatId;

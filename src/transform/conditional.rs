@@ -1,8 +1,8 @@
 use crate::context::StatContext;
 use crate::error::StatError;
-use crate::numeric::{StatNumeric, StatValue};
+use crate::numeric::StatValue;
 use crate::stat_id::StatId;
-use crate::transform::core::{TransformPhase, StackRule, StatTransform};
+use crate::transform::core::StatTransform;
 use rustc_hash::FxHashMap;
 
 /// A conditional transform that applies another transform based on a condition.
@@ -105,6 +105,7 @@ impl StatTransform for ConditionalTransform {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::numeric::{StatNumeric, StatValue};
     use crate::transform::standard::MultiplicativeTransform;
 
     #[test]

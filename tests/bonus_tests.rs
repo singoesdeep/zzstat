@@ -197,16 +197,14 @@ fn test_apply_compiled_bonuses_to_fork() {
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
     base_resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
-    let bonuses = vec![
-        Bonus::add(hp_id.clone())
+    let bonuses = [Bonus::add(hp_id.clone())
             .flat(50.0)
             .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(atk_id.clone())
             .percent(0.20)
-            .in_phase(TransformPhase::Custom(3)),
-    ];
+            .in_phase(TransformPhase::Custom(3))];
 
-    let compiled: Vec<_> = bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+    let compiled: Vec<_> = bonuses.iter().map(compile_bonus::<f64>).collect();
 
     let mut fork = base_resolver.fork();
     apply_compiled_bonuses(&mut fork, &compiled);
@@ -260,17 +258,15 @@ fn test_override_resets_value_in_phase() {
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     // Item phase: +200 HP, +10% HP
-    let item_bonuses = vec![
-        Bonus::add(hp_id.clone())
+    let item_bonuses = [Bonus::add(hp_id.clone())
             .flat(200.0)
             .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(hp_id.clone())
             .percent(0.10)
-            .in_phase(TransformPhase::Custom(3)),
-    ];
+            .in_phase(TransformPhase::Custom(3))];
     let item_compiled: Vec<_> = item_bonuses
         .iter()
-        .map(|b| compile_bonus::<f64>(b))
+        .map(compile_bonus::<f64>)
         .collect();
 
     let mut item_fork = resolver.fork();
@@ -282,15 +278,13 @@ fn test_override_resets_value_in_phase() {
     assert_eq!(item_stats.value.to_f64(), 1320.0);
 
     // Buff phase: Override HP = 500, then +50% HP
-    let buff_bonuses = vec![
-        Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4)),
+    let buff_bonuses = [Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4)),
         Bonus::mul(hp_id.clone())
             .percent(0.50)
-            .in_phase(TransformPhase::Custom(4)),
-    ];
+            .in_phase(TransformPhase::Custom(4))];
     let buff_compiled: Vec<_> = buff_bonuses
         .iter()
-        .map(|b| compile_bonus::<f64>(b))
+        .map(compile_bonus::<f64>)
         .collect();
 
     let mut buff_fork = item_fork.fork();
@@ -341,13 +335,11 @@ fn test_override_composes_with_other_transforms() {
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     // Same phase: Override to 500, then +50% HP
-    let bonuses = vec![
-        Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4)),
+    let bonuses = [Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4)),
         Bonus::mul(hp_id.clone())
             .percent(0.50)
-            .in_phase(TransformPhase::Custom(4)),
-    ];
-    let compiled: Vec<_> = bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+            .in_phase(TransformPhase::Custom(4))];
+    let compiled: Vec<_> = bonuses.iter().map(compile_bonus::<f64>).collect();
 
     let mut fork = resolver.fork();
     apply_compiled_bonuses(&mut fork, &compiled);
@@ -367,12 +359,10 @@ fn test_multiple_overrides_last_wins() {
     resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
 
     // Multiple overrides in same phase
-    let bonuses = vec![
-        Bonus::r#override(hp_id.clone(), 200.0).in_phase(TransformPhase::Custom(4)),
+    let bonuses = [Bonus::r#override(hp_id.clone(), 200.0).in_phase(TransformPhase::Custom(4)),
         Bonus::r#override(hp_id.clone(), 300.0).in_phase(TransformPhase::Custom(4)),
-        Bonus::r#override(hp_id.clone(), 400.0).in_phase(TransformPhase::Custom(4)),
-    ];
-    let compiled: Vec<_> = bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
+        Bonus::r#override(hp_id.clone(), 400.0).in_phase(TransformPhase::Custom(4))];
+    let compiled: Vec<_> = bonuses.iter().map(compile_bonus::<f64>).collect();
 
     let mut fork = resolver.fork();
     apply_compiled_bonuses(&mut fork, &compiled);
@@ -515,7 +505,7 @@ fn test_complete_item_system() {
     all_bonuses.extend(armor_bonuses);
     let all_compiled: Vec<_> = all_bonuses
         .iter()
-        .map(|b| compile_bonus::<f64>(b))
+        .map(compile_bonus::<f64>)
         .collect();
 
     // Apply to character

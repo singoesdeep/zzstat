@@ -21,7 +21,7 @@ fn main() {
     println!("✅ System Loaded: {} Weapons, {} Monsters.\n", game_data.weapons.len(), game_data.monsters.len());
 
     let weapon_vnum = 299; // Epée de bataille +9
-    let weapon = game_data.weapons.get(&weapon_vnum).unwrap_or(&game_data.weapons.values().next().unwrap());
+    let weapon = game_data.weapons.get(&weapon_vnum).unwrap_or(game_data.weapons.values().next().unwrap());
     let (min_att, max_att) = weapon.get_attack_values(9);
     
     // Warrior stats
@@ -133,7 +133,7 @@ fn main() {
         println!("Level: {}", monster.level());
         println!("Defense: {}", monster.defense());
         
-        let grade = monster.data.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+        let grade = monster.data.first().and_then(|v| v.as_i64()).unwrap_or(0);
         println!("Grade: {}", grade);
         println!("============================================================");
 

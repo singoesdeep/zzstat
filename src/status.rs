@@ -173,7 +173,6 @@ mod tests {
     use crate::context::StatContext;
     use crate::source::ConstantSource;
     use crate::stat_id::StatId;
-    use std::str::FromStr;
 
     #[test]
     fn test_status_manager_buffs() {

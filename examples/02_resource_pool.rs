@@ -3,7 +3,6 @@
 //! Demonstrates the stateful side of `zzstat`. How to track an entity's 
 //! Current HP, apply Poison (Damage over Time), and handle death triggers.
 
-use std::str::FromStr;
 use zzstat::context::StatContext;
 use zzstat::resolver::StatResolver;
 use zzstat::stat_id::StatId;

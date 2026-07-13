@@ -4,7 +4,6 @@
 //! `.fork()` overlay system. Base stats are never mutated, and buffs are 
 //! applied dynamically.
 
-use std::str::FromStr;
 use zzstat::context::StatContext;
 use zzstat::resolver::StatResolver;
 use zzstat::stat_id::StatId;

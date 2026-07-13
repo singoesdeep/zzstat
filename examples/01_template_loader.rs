@@ -4,9 +4,7 @@
 //! without hardcoding logic, and how it uses the `Condition` engine to
 //! evaluate dynamic combat stances (e.g., DEFENSIVE).
 
-use std::str::FromStr;
 use zzstat::context::StatContext;
-use zzstat::resolver::StatResolver;
 use zzstat::stat_id::StatId;
 use zzstat::template::StatTemplate;
 use zzstat::source::ConstantSource;

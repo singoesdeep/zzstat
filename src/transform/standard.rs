@@ -2,7 +2,7 @@ use crate::context::StatContext;
 use crate::error::StatError;
 use crate::numeric::{StatValue, StatNumeric};
 use crate::stat_id::StatId;
-use crate::transform::core::{TransformPhase, StackRule, StatTransform, ClampBounds};
+use crate::transform::core::{TransformPhase, StatTransform, ClampBounds};
 use rustc_hash::FxHashMap;
 
 /// A multiplicative transform (percentage modifier).
