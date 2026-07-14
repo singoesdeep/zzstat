@@ -76,7 +76,7 @@ println!("STR: {}, ATK: {}", resolved_str, resolved_atk);
 
 ## 3. BonusAction API
 
-`BonusAction` enum'u, eşya ve item özelliklerini yönetmenin en güvenli ve paslı (idiomatic) yoludur. Karmaşık `TransformEntry` veri yapılarıyla uğraşmak yerine, çok daha okunabilir yardımcı metodlarla bonusları yaratıp (compile) sisteme enjekte edebilirsiniz.
+`BonusAction` enum'u, eşya ve item özelliklerini yönetmenin en güvenli ve rusty (idiomatic) yoludur. Karmaşık `TransformEntry` veri yapılarıyla uğraşmak yerine, çok daha okunabilir yardımcı metodlarla bonusları yaratıp (compile) sisteme enjekte edebilirsiniz.
 
 ### Mevcut Metodlar:
 - `Bonus::add_flat()`: Düz bir değer ekler (+50 HP).
