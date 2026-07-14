@@ -592,12 +592,10 @@ impl StatResolver {
 
         // Add edges from transform dependencies (check overlay first, then base)
         for stat_id in self.registry.get_all_stat_ids() {
-            if let Some(transforms) = self.registry.get_transforms(&stat_id) {
-                for entry in transforms {
-                    for dep in entry.transform.depends_on() {
-                        // dep must be resolved before stat_id
-                        graph.add_edge(stat_id.clone(), dep);
-                    }
+            for entry in self.registry.iter_transforms(&stat_id) {
+                for dep in entry.transform.depends_on() {
+                    // dep must be resolved before stat_id
+                    graph.add_edge(stat_id.clone(), dep);
                 }
             }
         }
@@ -627,57 +625,29 @@ impl StatResolver {
             out.push_str(&format!("    {}[(\"{}\")]\n", stat_id, stat_id));
 
             // Add sources
-            let mut source_count = 0;
-            if let Some(sources) = self.registry.base.sources.get(stat_id) {
-                for src in sources {
-                    let src_id = format!("{}_src_b{}", stat_id, source_count);
-                    let desc = format!("{:?}", src).replace("\"", "'");
-                    out.push_str(&format!("    {}>\"{}\"]\n", src_id, desc));
-                    out.push_str(&format!("    {} -.-> {}\n", src_id, stat_id));
-                    source_count += 1;
-                }
-            }
-            if let Some(sources) = self.registry.overlay.sources.get(stat_id) {
-                for src in sources {
-                    let src_id = format!("{}_src_o{}", stat_id, source_count);
-                    let desc = format!("{:?}", src).replace("\"", "'");
-                    out.push_str(&format!("    {}>\"{}\"]\n", src_id, desc));
-                    out.push_str(&format!("    {} -.-> {}\n", src_id, stat_id));
-                    source_count += 1;
-                }
+            for (source_count, src) in self.registry.iter_sources(stat_id).enumerate() {
+                let src_id = format!("{}_src_{}", stat_id, source_count);
+                let desc = format!("{:?}", src).replace("\"", "'");
+                out.push_str(&format!("    {}>\"{}\"]\n", src_id, desc));
+                out.push_str(&format!("    {} -.-> {}\n", src_id, stat_id));
             }
 
             // Add transforms
-            let mut transform_count = 0;
-            if let Some(transforms) = self.registry.base.transforms.get(stat_id) {
-                for entry in transforms {
-                    let tr_id = format!("{}_tr_b{}", stat_id, transform_count);
-                    let desc = entry.transform.description().replace("\"", "'");
-                    out.push_str(&format!("    {}[/\"{}\"/]\n", tr_id, desc));
-                    out.push_str(&format!("    {} -.-> {}\n", tr_id, stat_id));
-                    transform_count += 1;
-                }
-            }
-            if let Some(transforms) = self.registry.overlay.transforms.get(stat_id) {
-                for entry in transforms {
-                    let tr_id = format!("{}_tr_o{}", stat_id, transform_count);
-                    let desc = entry.transform.description().replace("\"", "'");
-                    out.push_str(&format!("    {}[/\"{}\"/]\n", tr_id, desc));
-                    out.push_str(&format!("    {} -.-> {}\n", tr_id, stat_id));
-                    transform_count += 1;
-                }
+            for (transform_count, entry) in self.registry.iter_transforms(stat_id).enumerate() {
+                let tr_id = format!("{}_tr_{}", stat_id, transform_count);
+                let desc = entry.transform.description().replace("\"", "'");
+                out.push_str(&format!("    {}[/\"{}\"/]\n", tr_id, desc));
+                out.push_str(&format!("    {} -.-> {}\n", tr_id, stat_id));
             }
         }
 
         // Add dependency edges
         if let Ok(graph) = self.build_graph() {
             for stat_id in graph.nodes() {
-                if let Some(transforms) = self.registry.get_transforms(&stat_id) {
-                    for entry in transforms {
-                        for dep in entry.transform.depends_on() {
-                            // dep is required for stat_id. Thus data flows from dep -> stat_id
-                            out.push_str(&format!("    {} ==> {}\n", dep, stat_id));
-                        }
+                for entry in self.registry.iter_transforms(&stat_id) {
+                    for dep in entry.transform.depends_on() {
+                        // dep is required for stat_id. Thus data flows from dep -> stat_id
+                        out.push_str(&format!("    {} ==> {}\n", dep, stat_id));
                     }
                 }
             }
@@ -696,28 +666,15 @@ impl StatResolver {
         let mut resolved = ResolvedStat::new(stat_id.clone(), StatValue::zero());
 
         // Step 1: Collect all source values (additive)
-        // Combine overlay and base sources (overlay adds to base, doesn't shadow)
         let mut base_value = StatValue::zero();
         let mut source_count = 0;
 
-        // Collect base sources
-        if let Some(base_sources) = self.registry.base.sources.get(stat_id) {
-            for source in base_sources.iter() {
-                let value = source.get_value(stat_id, context);
-                base_value += value;
-                source_count += 1;
-                resolved.add_source(format!("Source #{}", source_count), value);
-            }
-        }
-
-        // Collect overlay sources (additive to base)
-        if let Some(overlay_sources) = self.registry.overlay.sources.get(stat_id) {
-            for source in overlay_sources.iter() {
-                let value = source.get_value(stat_id, context);
-                base_value += value;
-                source_count += 1;
-                resolved.add_source(format!("Source #{}", source_count), value);
-            }
+        // Collect sources
+        for source in self.registry.iter_sources(stat_id) {
+            let value = source.get_value(stat_id, context);
+            base_value += value;
+            source_count += 1;
+            resolved.add_source(format!("Source #{}", source_count), value);
         }
 
         // If no sources at all, create a default source entry
@@ -730,13 +687,7 @@ impl StatResolver {
         let mut current_value = base_value;
 
         // Collect all transforms (base first, then overlay)
-        let mut all_transforms = Vec::new();
-        if let Some(base_transforms) = self.registry.base.transforms.get(stat_id) {
-            all_transforms.extend(base_transforms.iter());
-        }
-        if let Some(overlay_transforms) = self.registry.overlay.transforms.get(stat_id) {
-            all_transforms.extend(overlay_transforms.iter());
-        }
+        let all_transforms: Vec<&TransformEntry> = self.registry.iter_transforms(stat_id).collect();
 
         if !all_transforms.is_empty() {
             // Group transforms by phase

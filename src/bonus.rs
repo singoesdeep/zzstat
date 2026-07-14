@@ -9,34 +9,30 @@ use crate::error::StatError;
 use crate::numeric::{StatNumeric, StatValue};
 use crate::stat_id::StatId;
 use crate::transform::{
-    AdditiveTransform, ClampTransform, MultiplicativeTransform, StackRule, StatTransform,
-    TransformPhase,
+    AdditiveTransform, ClampTransform, MultiplicativeTransform, ScalingTransform, StackRule,
+    StatTransform, TransformPhase,
 };
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
-/// Bonus operation type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BonusOp {
-    /// Add a flat or percentage value.
-    Add,
-    /// Multiply by a percentage.
-    Multiply,
+/// Bonus action type.
+///
+/// Strongly typed actions to prevent invalid combinations like Override with Percent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum BonusAction {
+    /// Add a flat numeric value.
+    AddFlat { value: f64 },
+    /// Scale from another stat (adds source_value * factor to target).
+    ScaleFrom { source: StatId, factor: f64 },
+    /// Multiply by a multiplier (e.g., 1.2 for +20%).
+    Multiply { multiplier: f64 },
     /// Override the stat to an absolute value.
-    Override,
+    Override { value: f64 },
     /// Clamp to a minimum value.
-    ClampMin,
+    ClampMin { value: f64 },
     /// Clamp to a maximum value.
-    ClampMax,
-}
-
-/// Bonus value type.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum BonusValue {
-    /// Flat numeric value.
-    Flat(f64),
-    /// Percentage value (e.g., 0.10 for 10%).
-    Percent(f64),
+    ClampMax { value: f64 },
 }
 
 /// A bonus definition.
@@ -47,10 +43,8 @@ pub enum BonusValue {
 pub struct Bonus {
     /// The target stat ID.
     pub target: StatId,
-    /// The operation to perform.
-    pub operation: BonusOp,
-    /// The value for the operation.
-    pub value: BonusValue,
+    /// The action to perform.
+    pub action: BonusAction,
     /// The phase in which to apply this bonus.
     pub phase: TransformPhase,
 }
@@ -58,6 +52,12 @@ pub struct Bonus {
 /// Builder for additive bonuses.
 pub struct AddBonusBuilder {
     target: StatId,
+}
+
+/// Builder for scaling bonuses.
+pub struct ScaleBonusBuilder {
+    target: StatId,
+    source: StatId,
 }
 
 /// Builder for multiplicative bonuses.
@@ -68,102 +68,49 @@ pub struct MulBonusBuilder {
 /// Builder for additive bonuses with value set.
 pub struct AddBonusBuilderWithValue {
     target: StatId,
-    value: BonusValue,
+    value: f64,
+}
+
+/// Builder for scaling bonuses with value set.
+pub struct ScaleBonusBuilderWithFactor {
+    target: StatId,
+    source: StatId,
+    factor: f64,
 }
 
 /// Builder for multiplicative bonuses with value set.
 pub struct MulBonusBuilderWithValue {
     target: StatId,
-    value: BonusValue,
+    multiplier: f64,
 }
 
 impl Bonus {
     /// Create a new additive bonus builder.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::bonus::Bonus;
-    /// use zzstat::StatId;
-    /// use zzstat::transform::TransformPhase;
-    ///
-    /// let hp_id = StatId::from("HP");
-    /// let bonus = Bonus::add(hp_id)
-    ///     .flat(50.0)
-    ///     .in_phase(TransformPhase::Custom(3));
-    /// ```
     pub fn add(target: StatId) -> AddBonusBuilder {
         AddBonusBuilder { target }
     }
 
+    /// Create a new scaling bonus builder (e.g. ATK scales from STR).
+    pub fn scale(target: StatId, source: StatId) -> ScaleBonusBuilder {
+        ScaleBonusBuilder { target, source }
+    }
+
     /// Create a new multiplicative bonus builder.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::bonus::Bonus;
-    /// use zzstat::StatId;
-    /// use zzstat::transform::TransformPhase;
-    ///
-    /// let atk_id = StatId::from("ATK");
-    /// let bonus = Bonus::mul(atk_id)
-    ///     .percent(0.20)
-    ///     .in_phase(TransformPhase::Custom(3));
-    /// ```
     pub fn mul(target: StatId) -> MulBonusBuilder {
         MulBonusBuilder { target }
     }
 
     /// Create a new override bonus.
-    ///
-    /// Override bonuses set the stat to an absolute value, ignoring
-    /// the input value. They are applied first in their phase.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::bonus::Bonus;
-    /// use zzstat::StatId;
-    /// use zzstat::transform::TransformPhase;
-    ///
-    /// let hp_id = StatId::from("HP");
-    /// let bonus = Bonus::r#override(hp_id, 500.0)
-    ///     .in_phase(TransformPhase::Custom(4));
-    /// ```
     pub fn r#override(target: StatId, value: f64) -> OverrideBonusBuilder {
         OverrideBonusBuilder { target, value }
     }
 
     /// Create a new clamp minimum bonus.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::bonus::Bonus;
-    /// use zzstat::StatId;
-    /// use zzstat::transform::TransformPhase;
-    ///
-    /// let hp_id = StatId::from("HP");
-    /// let bonus = Bonus::clamp_min(hp_id, 100.0)
-    ///     .in_phase(TransformPhase::Final);
-    /// ```
     pub fn clamp_min(target: StatId, value: f64) -> ClampMinBonusBuilder {
         ClampMinBonusBuilder { target, value }
     }
 
     /// Create a new clamp maximum bonus.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use zzstat::bonus::Bonus;
-    /// use zzstat::StatId;
-    /// use zzstat::transform::TransformPhase;
-    ///
-    /// let crit_id = StatId::from("CRIT_CHANCE");
-    /// let bonus = Bonus::clamp_max(crit_id, 0.75)
-    ///     .in_phase(TransformPhase::Final);
-    /// ```
     pub fn clamp_max(target: StatId, value: f64) -> ClampMaxBonusBuilder {
         ClampMaxBonusBuilder { target, value }
     }
@@ -174,18 +121,18 @@ impl AddBonusBuilder {
     pub fn flat(self, value: f64) -> AddBonusBuilderWithValue {
         AddBonusBuilderWithValue {
             target: self.target,
-            value: BonusValue::Flat(value),
+            value,
         }
     }
+}
 
-    /// Set a percentage value for the additive bonus.
-    ///
-    /// The percentage is applied to the current value and added.
-    /// For example, 0.10 means add 10% of the current value.
-    pub fn percent(self, value: f64) -> AddBonusBuilderWithValue {
-        AddBonusBuilderWithValue {
+impl ScaleBonusBuilder {
+    /// Set the scaling factor.
+    pub fn factor(self, factor: f64) -> ScaleBonusBuilderWithFactor {
+        ScaleBonusBuilderWithFactor {
             target: self.target,
-            value: BonusValue::Percent(value),
+            source: self.source,
+            factor,
         }
     }
 }
@@ -198,7 +145,15 @@ impl MulBonusBuilder {
     pub fn percent(self, value: f64) -> MulBonusBuilderWithValue {
         MulBonusBuilderWithValue {
             target: self.target,
-            value: BonusValue::Percent(value),
+            multiplier: 1.0 + value,
+        }
+    }
+
+    /// Set a direct multiplier value.
+    pub fn multiplier(self, multiplier: f64) -> MulBonusBuilderWithValue {
+        MulBonusBuilderWithValue {
+            target: self.target,
+            multiplier,
         }
     }
 }
@@ -208,8 +163,21 @@ impl AddBonusBuilderWithValue {
     pub fn in_phase(self, phase: TransformPhase) -> Bonus {
         Bonus {
             target: self.target,
-            operation: BonusOp::Add,
-            value: self.value,
+            action: BonusAction::AddFlat { value: self.value },
+            phase,
+        }
+    }
+}
+
+impl ScaleBonusBuilderWithFactor {
+    /// Set the phase for this bonus.
+    pub fn in_phase(self, phase: TransformPhase) -> Bonus {
+        Bonus {
+            target: self.target,
+            action: BonusAction::ScaleFrom {
+                source: self.source,
+                factor: self.factor,
+            },
             phase,
         }
     }
@@ -220,8 +188,9 @@ impl MulBonusBuilderWithValue {
     pub fn in_phase(self, phase: TransformPhase) -> Bonus {
         Bonus {
             target: self.target,
-            operation: BonusOp::Multiply,
-            value: self.value,
+            action: BonusAction::Multiply {
+                multiplier: self.multiplier,
+            },
             phase,
         }
     }
@@ -238,8 +207,7 @@ impl OverrideBonusBuilder {
     pub fn in_phase(self, phase: TransformPhase) -> Bonus {
         Bonus {
             target: self.target,
-            operation: BonusOp::Override,
-            value: BonusValue::Flat(self.value),
+            action: BonusAction::Override { value: self.value },
             phase,
         }
     }
@@ -256,8 +224,7 @@ impl ClampMinBonusBuilder {
     pub fn in_phase(self, phase: TransformPhase) -> Bonus {
         Bonus {
             target: self.target,
-            operation: BonusOp::ClampMin,
-            value: BonusValue::Flat(self.value),
+            action: BonusAction::ClampMin { value: self.value },
             phase,
         }
     }
@@ -274,36 +241,26 @@ impl ClampMaxBonusBuilder {
     pub fn in_phase(self, phase: TransformPhase) -> Bonus {
         Bonus {
             target: self.target,
-            operation: BonusOp::ClampMax,
-            value: BonusValue::Flat(self.value),
+            action: BonusAction::ClampMax { value: self.value },
             phase,
         }
     }
 }
 
 /// A compiled bonus that can be applied to a resolver.
-///
-/// This is the compiled form of a `Bonus`, containing a fully constructed
-/// transform that requires no branching during stat resolution.
 #[derive(Debug, Clone)]
 pub struct CompiledBonus<N: StatNumeric> {
-    /// The target stat ID.
     pub stat: StatId,
-    /// The phase in which to apply this bonus.
     pub phase: TransformPhase,
-    /// The stack rule for this transform.
     pub stack_rule: StackRule,
-    /// The transform data (stored as enum for cloning).
     transform_data: TransformData,
-    /// Phantom data to track the numeric type (for type safety).
     _phantom: std::marker::PhantomData<N>,
 }
 
-/// Internal enum to store transform data in a cloneable way.
 #[derive(Debug, Clone)]
 enum TransformData {
     AdditiveFlat(f64),
-    AdditivePercent(StatId, f64),
+    ScaleFrom(StatId, f64),
     Multiplicative(f64),
     Override(f64),
     ClampMin(f64),
@@ -311,64 +268,22 @@ enum TransformData {
 }
 
 /// Compile a bonus into a compiled bonus.
-///
-/// This function performs all branching and matching, producing a
-/// `CompiledBonus` that can be applied without any branching during
-/// stat resolution.
-///
-/// # Arguments
-///
-/// * `bonus` - The bonus to compile
-///
-/// # Returns
-///
-/// A `CompiledBonus` containing the appropriate transform.
-///
-/// # Examples
-///
-/// ```rust
-/// use zzstat::bonus::{Bonus, compile_bonus};
-/// use zzstat::StatId;
-/// use zzstat::transform::TransformPhase;
-///
-/// let hp_id = StatId::from("HP");
-/// let bonus = Bonus::add(hp_id)
-///     .flat(50.0)
-///     .in_phase(TransformPhase::Custom(3));
-///
-/// let compiled = compile_bonus::<f64>(&bonus);
-/// ```
 pub fn compile_bonus<N: StatNumeric>(bonus: &Bonus) -> CompiledBonus<N> {
-    let (transform_data, stack_rule) = match bonus.operation {
-        BonusOp::Add => match bonus.value {
-            BonusValue::Flat(value) => (TransformData::AdditiveFlat(value), StackRule::Additive),
-            BonusValue::Percent(percent) => (
-                TransformData::AdditivePercent(bonus.target.clone(), percent),
-                StackRule::Additive,
-            ),
-        },
-        BonusOp::Multiply => {
-            let multiplier = match bonus.value {
-                BonusValue::Percent(percent) => 1.0 + percent,
-                BonusValue::Flat(v) => v,
-            };
-            (
-                TransformData::Multiplicative(multiplier),
-                StackRule::Multiplicative,
-            )
+    let (transform_data, stack_rule) = match &bonus.action {
+        BonusAction::AddFlat { value } => {
+            (TransformData::AdditiveFlat(*value), StackRule::Additive)
         }
-        BonusOp::Override => {
-            let value = f64::from(bonus.value);
-            (TransformData::Override(value), StackRule::Override)
-        }
-        BonusOp::ClampMin => {
-            let min_value = f64::from(bonus.value);
-            (TransformData::ClampMin(min_value), StackRule::MinMax)
-        }
-        BonusOp::ClampMax => {
-            let max_value = f64::from(bonus.value);
-            (TransformData::ClampMax(max_value), StackRule::MinMax)
-        }
+        BonusAction::ScaleFrom { source, factor } => (
+            TransformData::ScaleFrom(source.clone(), *factor),
+            StackRule::Additive,
+        ),
+        BonusAction::Multiply { multiplier } => (
+            TransformData::Multiplicative(*multiplier),
+            StackRule::Multiplicative,
+        ),
+        BonusAction::Override { value } => (TransformData::Override(*value), StackRule::Override),
+        BonusAction::ClampMin { value } => (TransformData::ClampMin(*value), StackRule::MinMax),
+        BonusAction::ClampMax { value } => (TransformData::ClampMax(*value), StackRule::MinMax),
     };
 
     CompiledBonus {
@@ -381,12 +296,11 @@ pub fn compile_bonus<N: StatNumeric>(bonus: &Bonus) -> CompiledBonus<N> {
 }
 
 impl<N: StatNumeric> CompiledBonus<N> {
-    /// Create a Box<dyn StatTransform> from the stored transform data.
     fn to_transform(&self) -> Box<dyn StatTransform> {
         match &self.transform_data {
             TransformData::AdditiveFlat(value) => Box::new(AdditiveTransform::new(*value)),
-            TransformData::AdditivePercent(dep, percent) => {
-                Box::new(PercentAdditiveTransform::new(dep.clone(), *percent))
+            TransformData::ScaleFrom(source, factor) => {
+                Box::new(ScalingTransform::new(source.clone(), *factor))
             }
             TransformData::Multiplicative(multiplier) => {
                 Box::new(MultiplicativeTransform::new(*multiplier))
@@ -402,32 +316,6 @@ impl<N: StatNumeric> CompiledBonus<N> {
     }
 }
 
-/// Apply a compiled bonus to a resolver.
-///
-/// This function registers the compiled bonus's transform to the resolver
-/// with the appropriate phase and stack rule. It contains no branching logic.
-///
-/// # Arguments
-///
-/// * `resolver` - The resolver to apply the bonus to
-/// * `compiled` - The compiled bonus to apply
-///
-/// # Examples
-///
-/// ```rust
-/// use zzstat::bonus::{Bonus, compile_bonus, apply_compiled_bonus};
-/// use zzstat::{StatId, StatResolver};
-/// use zzstat::transform::TransformPhase;
-///
-/// let mut resolver = StatResolver::new();
-/// let hp_id = StatId::from("HP");
-/// let bonus = Bonus::add(hp_id)
-///     .flat(50.0)
-///     .in_phase(TransformPhase::Custom(3));
-///
-/// let compiled = compile_bonus::<f64>(&bonus);
-/// apply_compiled_bonus(&mut resolver, &compiled);
-/// ```
 #[inline]
 pub fn apply_compiled_bonus<N: StatNumeric>(
     resolver: &mut crate::resolver::StatResolver,
@@ -441,30 +329,6 @@ pub fn apply_compiled_bonus<N: StatNumeric>(
     );
 }
 
-/// Apply multiple compiled bonuses to a resolver.
-///
-/// # Arguments
-///
-/// * `resolver` - The resolver to apply bonuses to
-/// * `compiled` - The compiled bonuses to apply
-///
-/// # Examples
-///
-/// ```rust
-/// use zzstat::bonus::{Bonus, compile_bonus, apply_compiled_bonuses};
-/// use zzstat::{StatId, StatResolver};
-/// use zzstat::transform::TransformPhase;
-///
-/// let mut resolver = StatResolver::new();
-/// let hp_id = StatId::from("HP");
-/// let bonuses = vec![
-///     Bonus::add(hp_id.clone()).flat(50.0).in_phase(TransformPhase::Custom(3)),
-///     Bonus::mul(hp_id).percent(0.10).in_phase(TransformPhase::Custom(3)),
-/// ];
-///
-/// let compiled: Vec<_> = bonuses.iter().map(|b| compile_bonus::<f64>(b)).collect();
-/// apply_compiled_bonuses(&mut resolver, &compiled);
-/// ```
 pub fn apply_compiled_bonuses<N: StatNumeric>(
     resolver: &mut crate::resolver::StatResolver,
     compiled: &[CompiledBonus<N>],
@@ -474,67 +338,6 @@ pub fn apply_compiled_bonuses<N: StatNumeric>(
     }
 }
 
-// Custom transforms
-
-/// A transform that adds a percentage of the current value.
-///
-/// This is used for additive percent bonuses (e.g., +10% HP).
-/// It depends on the stat itself to read the current value.
-struct PercentAdditiveTransform {
-    dependency: StatId,
-    percent: f64,
-}
-
-impl PercentAdditiveTransform {
-    fn new(dependency: StatId, percent: f64) -> Self {
-        Self {
-            dependency,
-            percent,
-        }
-    }
-}
-
-impl StatTransform for PercentAdditiveTransform {
-    fn depends_on(&self) -> Vec<StatId> {
-        vec![self.dependency.clone()]
-    }
-
-    fn phase(&self) -> TransformPhase {
-        TransformPhase::Additive
-    }
-
-    fn apply(
-        &self,
-        input: StatValue,
-        dependencies: &FxHashMap<StatId, StatValue>,
-        _context: &StatContext,
-    ) -> Result<StatValue, StatError> {
-        let dep_value = dependencies
-            .get(&self.dependency)
-            .ok_or_else(|| StatError::MissingDependency(self.dependency.clone()))?;
-        // Add (current_value * percent) to input
-        let bonus = *dep_value * StatValue::from_f64(self.percent);
-        Ok(input + bonus)
-    }
-
-    fn description(&self) -> String {
-        format!("+{:.1}% (additive)", self.percent * 100.0)
-    }
-}
-
-impl Clone for PercentAdditiveTransform {
-    fn clone(&self) -> Self {
-        Self {
-            dependency: self.dependency.clone(),
-            percent: self.percent,
-        }
-    }
-}
-
-/// A transform that overrides the stat to an absolute value.
-///
-/// This transform ignores the input value completely and returns
-/// the absolute value. It is used for Override bonuses.
 #[derive(Clone)]
 struct OverrideTransform {
     absolute_value: f64,
@@ -552,7 +355,7 @@ impl StatTransform for OverrideTransform {
     }
 
     fn phase(&self) -> TransformPhase {
-        TransformPhase::Additive // Default, will be overridden by phase in CompiledBonus
+        TransformPhase::Additive
     }
 
     fn apply(
@@ -561,20 +364,10 @@ impl StatTransform for OverrideTransform {
         _dependencies: &FxHashMap<StatId, StatValue>,
         _context: &StatContext,
     ) -> Result<StatValue, StatError> {
-        // Always return the absolute value, completely ignoring input
         Ok(StatValue::from_f64(self.absolute_value))
     }
 
     fn description(&self) -> String {
         format!("override({:.2})", self.absolute_value)
-    }
-}
-
-impl From<BonusValue> for f64 {
-    fn from(value: BonusValue) -> Self {
-        match value {
-            BonusValue::Flat(v) => v,
-            BonusValue::Percent(v) => v,
-        }
     }
 }

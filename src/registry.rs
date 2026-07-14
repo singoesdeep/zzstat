@@ -61,19 +61,22 @@ impl StatRegistry {
         Arc::strong_count(&self.base) > 1
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn get_sources(&self, stat_id: &StatId) -> Option<&Vec<Box<dyn StatSource>>> {
-        self.overlay
-            .sources
-            .get(stat_id)
-            .or_else(|| self.base.sources.get(stat_id))
+    pub(crate) fn iter_sources<'a>(
+        &'a self,
+        stat_id: &StatId,
+    ) -> impl Iterator<Item = &'a Box<dyn StatSource>> {
+        let base_iter = self.base.sources.get(stat_id).into_iter().flatten();
+        let overlay_iter = self.overlay.sources.get(stat_id).into_iter().flatten();
+        base_iter.chain(overlay_iter)
     }
 
-    pub(crate) fn get_transforms(&self, stat_id: &StatId) -> Option<&Vec<TransformEntry>> {
-        self.overlay
-            .transforms
-            .get(stat_id)
-            .or_else(|| self.base.transforms.get(stat_id))
+    pub(crate) fn iter_transforms<'a>(
+        &'a self,
+        stat_id: &StatId,
+    ) -> impl Iterator<Item = &'a TransformEntry> {
+        let base_iter = self.base.transforms.get(stat_id).into_iter().flatten();
+        let overlay_iter = self.overlay.transforms.get(stat_id).into_iter().flatten();
+        base_iter.chain(overlay_iter)
     }
 
     pub(crate) fn get_all_stat_ids(&self) -> FxHashSet<StatId> {

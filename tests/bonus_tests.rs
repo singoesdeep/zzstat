@@ -24,21 +24,29 @@ fn test_bonus_add_flat() {
         .in_phase(TransformPhase::Custom(3));
 
     assert_eq!(bonus.target, hp_id);
-    assert_eq!(bonus.operation, zzstat::bonus::BonusOp::Add);
-    assert_eq!(bonus.value, zzstat::bonus::BonusValue::Flat(50.0));
+    assert_eq!(
+        bonus.action,
+        zzstat::bonus::BonusAction::AddFlat { value: 50.0 }
+    );
     assert_eq!(bonus.phase, TransformPhase::Custom(3));
 }
 
 #[test]
-fn test_bonus_add_percent() {
-    let hp_id = StatId::from("HP");
-    let bonus = Bonus::add(hp_id.clone())
-        .percent(0.10)
+fn test_bonus_scale() {
+    let atk_id = StatId::from("ATK");
+    let str_id = StatId::from("STR");
+    let bonus = Bonus::scale(atk_id.clone(), str_id.clone())
+        .factor(2.0)
         .in_phase(TransformPhase::Custom(3));
 
-    assert_eq!(bonus.target, hp_id);
-    assert_eq!(bonus.operation, zzstat::bonus::BonusOp::Add);
-    assert_eq!(bonus.value, zzstat::bonus::BonusValue::Percent(0.10));
+    assert_eq!(bonus.target, atk_id);
+    assert_eq!(
+        bonus.action,
+        zzstat::bonus::BonusAction::ScaleFrom {
+            source: str_id,
+            factor: 2.0
+        }
+    );
 }
 
 #[test]
@@ -49,8 +57,10 @@ fn test_bonus_multiply() {
         .in_phase(TransformPhase::Custom(3));
 
     assert_eq!(bonus.target, atk_id);
-    assert_eq!(bonus.operation, zzstat::bonus::BonusOp::Multiply);
-    assert_eq!(bonus.value, zzstat::bonus::BonusValue::Percent(0.20));
+    assert_eq!(
+        bonus.action,
+        zzstat::bonus::BonusAction::Multiply { multiplier: 1.20 }
+    );
 }
 
 #[test]
@@ -59,8 +69,10 @@ fn test_bonus_override() {
     let bonus = Bonus::r#override(hp_id.clone(), 500.0).in_phase(TransformPhase::Custom(4));
 
     assert_eq!(bonus.target, hp_id);
-    assert_eq!(bonus.operation, zzstat::bonus::BonusOp::Override);
-    assert_eq!(bonus.value, zzstat::bonus::BonusValue::Flat(500.0));
+    assert_eq!(
+        bonus.action,
+        zzstat::bonus::BonusAction::Override { value: 500.0 }
+    );
 }
 
 #[test]
@@ -69,8 +81,10 @@ fn test_bonus_clamp_min() {
     let bonus = Bonus::clamp_min(hp_id.clone(), 100.0).in_phase(TransformPhase::Final);
 
     assert_eq!(bonus.target, hp_id);
-    assert_eq!(bonus.operation, zzstat::bonus::BonusOp::ClampMin);
-    assert_eq!(bonus.value, zzstat::bonus::BonusValue::Flat(100.0));
+    assert_eq!(
+        bonus.action,
+        zzstat::bonus::BonusAction::ClampMin { value: 100.0 }
+    );
 }
 
 #[test]
@@ -79,8 +93,10 @@ fn test_bonus_clamp_max() {
     let bonus = Bonus::clamp_max(crit_id.clone(), 0.75).in_phase(TransformPhase::Final);
 
     assert_eq!(bonus.target, crit_id);
-    assert_eq!(bonus.operation, zzstat::bonus::BonusOp::ClampMax);
-    assert_eq!(bonus.value, zzstat::bonus::BonusValue::Flat(0.75));
+    assert_eq!(
+        bonus.action,
+        zzstat::bonus::BonusAction::ClampMax { value: 0.75 }
+    );
 }
 
 // ============================================================================
@@ -102,10 +118,11 @@ fn test_compile_add_flat() {
 }
 
 #[test]
-fn test_compile_add_percent() {
+fn test_compile_scale() {
     let hp_id = StatId::from("HP");
-    let bonus = Bonus::add(hp_id.clone())
-        .percent(0.10)
+    let str_id = StatId::from("STR");
+    let bonus = Bonus::scale(hp_id.clone(), str_id)
+        .factor(2.0)
         .in_phase(TransformPhase::Custom(3));
 
     let compiled = compile_bonus::<f64>(&bonus);
@@ -193,9 +210,11 @@ fn test_apply_compiled_bonuses_to_fork() {
     let mut base_resolver = StatResolver::new();
     let hp_id = StatId::from("HP");
     let atk_id = StatId::from("ATK");
+    let str_id = StatId::from("STR");
 
     base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(1000.0)));
     base_resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
+    base_resolver.register_source(str_id.clone(), Box::new(ConstantSource(50.0)));
 
     let bonuses = [
         Bonus::add(hp_id.clone())
@@ -203,6 +222,9 @@ fn test_apply_compiled_bonuses_to_fork() {
             .in_phase(TransformPhase::Custom(3)),
         Bonus::mul(atk_id.clone())
             .percent(0.20)
+            .in_phase(TransformPhase::Custom(3)),
+        Bonus::scale(atk_id.clone(), str_id.clone())
+            .factor(2.0)
             .in_phase(TransformPhase::Custom(3)),
     ];
 
@@ -217,7 +239,8 @@ fn test_apply_compiled_bonuses_to_fork() {
         .unwrap();
 
     assert_eq!(stats[&hp_id].value.to_f64(), 1050.0); // 1000 + 50
-    assert_eq!(stats[&atk_id].value.to_f64(), 120.0); // 100 * 1.20
+                                                      // ATK base 100 + (STR 50 * 2.0 = 100) = 200, then 200 * 1.20 = 240
+    assert_eq!(stats[&atk_id].value.to_f64(), 240.0);
 }
 
 #[test]

@@ -100,6 +100,5 @@ pub use numeric::{StatNumeric, StatValue};
 
 // Re-export bonus types
 pub use bonus::{
-    apply_compiled_bonus, apply_compiled_bonuses, compile_bonus, Bonus, BonusOp, BonusValue,
-    CompiledBonus,
+    apply_compiled_bonus, apply_compiled_bonuses, compile_bonus, Bonus, BonusAction, CompiledBonus,
 };

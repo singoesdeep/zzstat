@@ -133,7 +133,8 @@ impl ResourcePool {
         } else {
             // Even if no time effects changed the value, check triggers
             // in case max capacity changed or existing state meets conditions.
-            self.check_triggers(resolver, context)
+            // BUG FIX: we must still clamp the value in case max_capacity changed!
+            self.change_value(0.0, resolver, context)
         }
     }
 
