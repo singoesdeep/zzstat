@@ -178,5 +178,14 @@ You can use ChatGPT, Claude, or any LLM to generate perfectly formatted stat and
 
 ---
 
+## 📖 API Documentation
+For comprehensive API documentation including all structs, methods, and types, you can generate and open the Rustdoc HTML directly on your machine:
+```bash
+cargo doc --open
+```
+Additionally, check out the `docs/` folder in the repository for detailed guides and architectural walkthroughs in both English and Turkish.
+
+---
+
 ## License
 This project is licensed under the MIT License.
