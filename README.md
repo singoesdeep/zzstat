@@ -62,7 +62,7 @@ Adding a temporary buff shouldn't permanently alter the base stats. `zzstat` use
 let buff = StatusEffect {
     id: "WARCRY".to_string(),
     name: "Warcry".to_string(),
-    bonuses: vec![Bonus::add(atk_id).flat(50.0)],
+    bonuses: vec![Bonus::add_flat(atk_id, 50.0)],
     max_stacks: 1,
     stack_behavior: StackBehavior::Refresh,
 };
