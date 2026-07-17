@@ -62,7 +62,9 @@ Adding a temporary buff shouldn't permanently alter the base stats. `zzstat` use
 let buff = StatusEffect {
     id: "WARCRY".to_string(),
     name: "Warcry".to_string(),
-    bonuses: vec![Bonus::add_flat(atk_id, 50.0)],
+    bonuses: vec![Bonus::add(atk_id)
+        .flat(50.0)
+        .in_phase(TransformPhase::Additive)],
     max_stacks: 1,
     stack_behavior: StackBehavior::Refresh,
 };
@@ -71,26 +73,28 @@ let buff = StatusEffect {
 status_manager.add_status_effect(buff, Some(3), 1);
 
 // Use the active resolver safely
-let current_atk = status_manager.get_active_resolver(&base_resolver).resolve(&atk_id, &ctx);
+let current_atk = status_manager
+    .get_active_resolver(&base_resolver)
+    .resolve(&atk_id, &ctx)
+    .unwrap();
 ```
 
-### 4. CombatEngine (AST Formula Evaluation)
-Evaluate complex attack commands defined entirely in JSON. The `CombatEngine` reads the AST and calculates the damage based on the Attacker and Defender's stats. Random chances (Crit/Dodge) rely on a closure, making tests 100% deterministic!
+### 4. CombatEngine & Bytecode VM
+Evaluate complex attack commands defined entirely in JSON. You can run formulas recursively on the AST, or compile them into a flat bytecode list (`Opcode`s) to run them inside a high-speed stack-based VM.
 
-```json
-{
-  "name": "Sword Slash",
-  "expression": {
-    "type": "Chance",
-    "chance_expr": { "type": "Stat", "target": "defender", "stat": "DODGE" },
-    "success_expr": { "type": "Constant", "value": 0.0 },
-    "fail_expr": {
-      "type": "Subtract",
-      "left": { "type": "Stat", "target": "attacker", "stat": "ATK" },
-      "right": { "type": "Stat", "target": "defender", "stat": "DEF" }
-    }
-  }
-}
+```rust
+// Compile the formula into flat bytecode
+let compiled = formula.compile();
+
+// Evaluate bytecode in the VM (maximum performance)
+let damage = CombatEngine::evaluate_compiled(
+    &compiled,
+    &mut attacker,
+    &ctx,
+    &mut defender,
+    &ctx,
+    &mut rng,
+).unwrap();
 ```
 
 ### 5. Graph Visualization (Mermaid.js)
@@ -147,6 +151,12 @@ graph TD
     WEAPON_MIN ==> WEAPON_AVG
     WEAPON_MAX ==> WEAPON_AVG
 ```
+```
+
+### 6. New in v0.5.0: Conditional Buffs, Triggers & Hierarchy
+- **Conditional Status Effects:** Apply conditional requirements to item/buff modifiers using `.with_condition(condition)`.
+- **Reactive Triggers:** Register `EffectTrigger`s that fire automatically when game events occur (e.g. applying a Shield status effect when `current_hp` drops below 30.0).
+- **Hierarchical Environments:** Fork resolvers recursively (`Weather -> Zone -> Party -> Character`) and inherit all active modifiers. Any changes in parent layers (e.g. weather changes) propagate instantly.
 
 ---
 
