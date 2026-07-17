@@ -84,7 +84,12 @@ impl StatusEffectManager {
     }
 
     /// Adds or updates a status effect.
-    pub fn add_status_effect(&mut self, effect: StatusEffect, duration_ticks: Option<u32>, stacks: u32) {
+    pub fn add_status_effect(
+        &mut self,
+        effect: StatusEffect,
+        duration_ticks: Option<u32>,
+        stacks: u32,
+    ) {
         let effect_id = effect.id.clone();
 
         if effect.stack_behavior != StackBehavior::Independent {
@@ -105,7 +110,7 @@ impl StatusEffectManager {
                         }
                     }
                     _ => {}
-                  }
+                }
                 self.dirty = true;
                 return;
             }
