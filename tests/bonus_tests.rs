@@ -547,3 +547,38 @@ fn test_complete_item_system() {
     // ATK: (100 + 25) * 1.15 = 143.75
     assert_eq!(stats[&atk_id].value.to_f64(), 143.75);
 }
+
+#[test]
+fn test_conditional_bonus() {
+    let mut resolver = StatResolver::new();
+    let def_id = StatId::from("DEF");
+    resolver.register_source(def_id.clone(), Box::new(ConstantSource(100.0)));
+
+    let condition = zzstat::condition::ConditionDef::Equals {
+        key: "STANCE".to_string(),
+        value: serde_json::json!("DEFENSIVE"),
+    };
+
+    let bonus = Bonus::add(def_id.clone())
+        .flat(50.0)
+        .in_phase(TransformPhase::Additive)
+        .with_condition(condition);
+
+    let compiled = compile_bonus::<f64>(&bonus);
+    let mut fork = resolver.fork();
+    apply_compiled_bonus(&mut fork, &compiled);
+
+    // Scenario 1: Normal Stance (no bonus)
+    let mut context = StatContext::new();
+    context.set("STANCE", "NORMAL");
+    let val_normal = fork.resolve(&def_id, &context).unwrap();
+    assert_eq!(val_normal.value.to_f64(), 100.0);
+
+    // Invalidate resolver cache since context changed
+    fork.invalidate_all();
+
+    // Scenario 2: Defensive Stance (bonus applied)
+    context.set("STANCE", "DEFENSIVE");
+    let val_def = fork.resolve(&def_id, &context).unwrap();
+    assert_eq!(val_def.value.to_f64(), 150.0);
+}

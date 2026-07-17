@@ -48,7 +48,7 @@ impl ConditionDef {
     }
 
     /// Evaluates the condition directly against the context.
-    fn evaluate(&self, ctx: &StatContext) -> bool {
+    pub fn evaluate(&self, ctx: &StatContext) -> bool {
         match self {
             ConditionDef::Equals { key, value } => {
                 if let Some(ctx_val) = ctx.get::<serde_json::Value>(key) {

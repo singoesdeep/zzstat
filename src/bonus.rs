@@ -47,6 +47,9 @@ pub struct Bonus {
     pub action: BonusAction,
     /// The phase in which to apply this bonus.
     pub phase: TransformPhase,
+    /// The condition under which this bonus is active.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<crate::condition::ConditionDef>,
 }
 
 /// Builder for additive bonuses.
@@ -114,6 +117,12 @@ impl Bonus {
     pub fn clamp_max(target: StatId, value: f64) -> ClampMaxBonusBuilder {
         ClampMaxBonusBuilder { target, value }
     }
+
+    /// Add a conditional requirement to this bonus.
+    pub fn with_condition(mut self, condition: crate::condition::ConditionDef) -> Self {
+        self.condition = Some(condition);
+        self
+    }
 }
 
 impl AddBonusBuilder {
@@ -165,6 +174,7 @@ impl AddBonusBuilderWithValue {
             target: self.target,
             action: BonusAction::AddFlat { value: self.value },
             phase,
+            condition: None,
         }
     }
 }
@@ -179,6 +189,7 @@ impl ScaleBonusBuilderWithFactor {
                 factor: self.factor,
             },
             phase,
+            condition: None,
         }
     }
 }
@@ -192,6 +203,7 @@ impl MulBonusBuilderWithValue {
                 multiplier: self.multiplier,
             },
             phase,
+            condition: None,
         }
     }
 }
@@ -209,6 +221,7 @@ impl OverrideBonusBuilder {
             target: self.target,
             action: BonusAction::Override { value: self.value },
             phase,
+            condition: None,
         }
     }
 }
@@ -226,6 +239,7 @@ impl ClampMinBonusBuilder {
             target: self.target,
             action: BonusAction::ClampMin { value: self.value },
             phase,
+            condition: None,
         }
     }
 }
@@ -243,6 +257,7 @@ impl ClampMaxBonusBuilder {
             target: self.target,
             action: BonusAction::ClampMax { value: self.value },
             phase,
+            condition: None,
         }
     }
 }
@@ -253,6 +268,7 @@ pub struct CompiledBonus<N: StatNumeric> {
     pub stat: StatId,
     pub phase: TransformPhase,
     pub stack_rule: StackRule,
+    pub condition: Option<crate::condition::ConditionDef>,
     transform_data: TransformData,
     _phantom: std::marker::PhantomData<N>,
 }
@@ -290,6 +306,7 @@ pub fn compile_bonus<N: StatNumeric>(bonus: &Bonus) -> CompiledBonus<N> {
         stat: bonus.target.clone(),
         phase: bonus.phase,
         stack_rule,
+        condition: bonus.condition.clone(),
         transform_data,
         _phantom: std::marker::PhantomData,
     }
@@ -297,7 +314,7 @@ pub fn compile_bonus<N: StatNumeric>(bonus: &Bonus) -> CompiledBonus<N> {
 
 impl<N: StatNumeric> CompiledBonus<N> {
     fn to_transform(&self) -> Box<dyn StatTransform> {
-        match &self.transform_data {
+        let inner: Box<dyn StatTransform> = match &self.transform_data {
             TransformData::AdditiveFlat(value) => Box::new(AdditiveTransform::new(*value)),
             TransformData::ScaleFrom(source, factor) => {
                 Box::new(ScalingTransform::new(source.clone(), *factor))
@@ -312,6 +329,18 @@ impl<N: StatNumeric> CompiledBonus<N> {
             TransformData::ClampMax(max_value) => {
                 Box::new(ClampTransform::with_max(StatValue::from_f64(*max_value)))
             }
+        };
+
+        if let Some(ref cond) = self.condition {
+            let cond = cond.clone();
+            let desc = format!("conditional -> {}", inner.description());
+            Box::new(crate::transform::ConditionalTransform::new(
+                move |ctx| cond.evaluate(ctx),
+                inner,
+                desc,
+            ))
+        } else {
+            inner
         }
     }
 }
