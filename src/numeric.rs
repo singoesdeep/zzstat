@@ -8,6 +8,8 @@ use std::ops::{Add, Div, Mul, Sub};
 
 #[cfg(feature = "fixed-point")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "fixed-point")]
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 /// Trait for numeric operations required by stat calculations.
 ///
