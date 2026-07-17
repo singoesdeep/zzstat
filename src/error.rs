@@ -58,6 +58,10 @@ pub enum StatError {
     /// Contains the stat ID and a description of what went wrong.
     #[error("Invalid transform for stat {0}: {1}")]
     InvalidTransform(StatId, String),
+
+    /// A VM execution error occurred.
+    #[error("VM error: {0}")]
+    VmError(String),
 }
 
 #[cfg(test)]
