@@ -1200,3 +1200,51 @@ fn test_clamp_deterministic_ordering() {
     assert_eq!(resolved2.value.to_f64(), 120.0);
     assert_eq!(resolved1.value, resolved2.value);
 }
+
+#[test]
+fn test_environment_modifier_inheritance() {
+    use zzstat::transform::MultiplicativeTransform;
+
+    let hp_id = StatId::from("HP");
+    let atk_id = StatId::from("ATK");
+
+    // 1. Weather Resolver (Base environment)
+    let mut weather = StatResolver::new();
+    weather.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
+    weather.register_source(atk_id.clone(), Box::new(ConstantSource(10.0)));
+
+    // 2. Zone Resolver (forked from weather)
+    let mut zone = weather.fork();
+    zone.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(1.2))); // +20% ATK in zone
+
+    // 3. Party Resolver (forked from zone)
+    let mut party = zone.fork();
+    party.register_source(atk_id.clone(), Box::new(ConstantSource(5.0))); // Party buff: +5 flat ATK
+
+    // 4. Character Resolver (forked from party)
+    let mut character = party.fork();
+    character.register_source(hp_id.clone(), Box::new(ConstantSource(50.0))); // Character base: +50 flat HP
+
+    let context = StatContext::new();
+
+    // Verify initial state
+    let stats = character.resolve_all(&context).unwrap();
+    // HP: 100 (weather) + 50 (character) = 150
+    assert_eq!(stats[&hp_id].value.to_f64(), 150.0);
+    // ATK: (10 (weather) + 5 (party)) * 1.2 (zone) = 18.0
+    assert_eq!(stats[&atk_id].value.to_f64(), 18.0);
+
+    // 5. Dynamic weather change! (e.g. Acid Rain starts, giving -20 HP and -50% ATK)
+    weather.register_source(hp_id.clone(), Box::new(ConstantSource(-20.0)));
+    weather.register_transform(atk_id.clone(), Box::new(MultiplicativeTransform::new(0.5)));
+
+    // Since character resolver caches stats, we must invalidate it
+    character.invalidate_all();
+
+    // Resolve again
+    let stats_rain = character.resolve_all(&context).unwrap();
+    // HP: 100 (weather) - 20 (weather acid rain) + 50 (character) = 130
+    assert_eq!(stats_rain[&hp_id].value.to_f64(), 130.0);
+    // ATK: (10 (weather) + 5 (party)) * 1.2 (zone) * 0.5 (weather rain) = 9.0
+    assert_eq!(stats_rain[&atk_id].value.to_f64(), 9.0);
+}

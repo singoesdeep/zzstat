@@ -15,6 +15,7 @@ use crate::transform::{StackRule, StatTransform, TransformEntry, TransformPhase}
 use rustc_hash::FxHashMap;
 
 use crate::registry::StatRegistry;
+use std::sync::Arc;
 
 /// Scope for stat resolution.
 ///
@@ -36,7 +37,7 @@ struct GraphCache {
 }
 
 pub struct StatResolver {
-    registry: StatRegistry,
+    registry: Arc<std::sync::RwLock<StatRegistry>>,
     graph_cache: Option<GraphCache>,
 
     /// Cache of resolved stats (per-instance, not shared).
@@ -55,7 +56,7 @@ impl StatResolver {
     /// ```
     pub fn new() -> Self {
         Self {
-            registry: StatRegistry::new(),
+            registry: Arc::new(std::sync::RwLock::new(StatRegistry::new())),
             graph_cache: None,
             cache: FxHashMap::default(),
         }
@@ -92,8 +93,10 @@ impl StatResolver {
     /// assert_eq!(fork_resolved.value.to_f64(), 150.0); // 100 + 50
     /// ```
     pub fn fork(&self) -> Self {
+        let parent_registry = Arc::clone(&self.registry);
+        let child_registry = StatRegistry::fork_with_parent(parent_registry);
         Self {
-            registry: self.registry.fork(),
+            registry: Arc::new(std::sync::RwLock::new(child_registry)),
             graph_cache: None,
             cache: FxHashMap::default(),
         }
@@ -127,8 +130,10 @@ impl StatResolver {
     /// ```
     pub fn register_source(&mut self, stat_id: StatId, source: Box<dyn StatSource>) {
         let stat_id_clone = stat_id.clone();
-        // Use copy-on-write helper to get the appropriate sources vector
-        self.registry.get_mut_sources(stat_id).push(source);
+        {
+            let mut guard = self.registry.write().unwrap();
+            guard.get_mut_sources(stat_id).push(Arc::new(source));
+        }
         // Invalidate cache for this stat and all dependents
         self.graph_cache = None;
         self.cache.remove(&stat_id_clone);
@@ -265,8 +270,10 @@ impl StatResolver {
     /// is added to the overlay. Otherwise, it's added to the base data.
     fn register_transform_entry(&mut self, stat_id: StatId, entry: TransformEntry) {
         let stat_id_clone = stat_id.clone();
-        // Use copy-on-write helper to get the appropriate transforms vector
-        self.registry.get_mut_transforms(stat_id).push(entry);
+        {
+            let mut guard = self.registry.write().unwrap();
+            guard.get_mut_transforms(stat_id).push(Arc::new(entry));
+        }
         // Invalidate cache for this stat and potentially dependent stats
         self.graph_cache = None;
         self.cache.remove(&stat_id_clone);
@@ -584,15 +591,16 @@ impl StatResolver {
     /// Build the dependency graph from all registered transforms.
     fn build_graph(&self) -> Result<StatGraph, StatError> {
         let mut graph = StatGraph::new();
+        let guard = self.registry.read().unwrap();
 
         // Add all stats that have sources or transforms
-        for stat_id in self.registry.get_all_stat_ids() {
-            graph.add_node(stat_id);
+        for stat_id in guard.get_all_stat_ids() {
+            graph.add_node(stat_id.clone());
         }
 
         // Add edges from transform dependencies (check overlay first, then base)
-        for stat_id in self.registry.get_all_stat_ids() {
-            for entry in self.registry.iter_transforms(&stat_id) {
+        for stat_id in guard.get_all_stat_ids() {
+            for entry in guard.get_transforms(&stat_id) {
                 for dep in entry.transform.depends_on() {
                     // dep must be resolved before stat_id
                     graph.add_edge(stat_id.clone(), dep);
@@ -618,14 +626,15 @@ impl StatResolver {
         let mut out = String::new();
         out.push_str("graph TD\n");
 
-        let stat_ids = self.registry.get_all_stat_ids();
+        let guard = self.registry.read().unwrap();
+        let stat_ids = guard.get_all_stat_ids();
 
         // Add all stats as main nodes
         for stat_id in &stat_ids {
             out.push_str(&format!("    {}[(\"{}\")]\n", stat_id, stat_id));
 
             // Add sources
-            for (source_count, src) in self.registry.iter_sources(stat_id).enumerate() {
+            for (source_count, src) in guard.get_sources(stat_id).iter().enumerate() {
                 let src_id = format!("{}_src_{}", stat_id, source_count);
                 let desc = format!("{:?}", src).replace("\"", "'");
                 out.push_str(&format!("    {}>\"{}\"]\n", src_id, desc));
@@ -633,7 +642,7 @@ impl StatResolver {
             }
 
             // Add transforms
-            for (transform_count, entry) in self.registry.iter_transforms(stat_id).enumerate() {
+            for (transform_count, entry) in guard.get_transforms(stat_id).iter().enumerate() {
                 let tr_id = format!("{}_tr_{}", stat_id, transform_count);
                 let desc = entry.transform.description().replace("\"", "'");
                 out.push_str(&format!("    {}[/\"{}\"/]\n", tr_id, desc));
@@ -644,7 +653,7 @@ impl StatResolver {
         // Add dependency edges
         if let Ok(graph) = self.build_graph() {
             for stat_id in graph.nodes() {
-                for entry in self.registry.iter_transforms(&stat_id) {
+                for entry in guard.get_transforms(&stat_id) {
                     for dep in entry.transform.depends_on() {
                         // dep is required for stat_id. Thus data flows from dep -> stat_id
                         out.push_str(&format!("    {} ==> {}\n", dep, stat_id));
@@ -664,13 +673,14 @@ impl StatResolver {
         _graph: &StatGraph,
     ) -> Result<ResolvedStat, StatError> {
         let mut resolved = ResolvedStat::new(stat_id.clone(), StatValue::zero());
+        let guard = self.registry.read().unwrap();
 
         // Step 1: Collect all source values (additive)
         let mut base_value = StatValue::zero();
         let mut source_count = 0;
 
         // Collect sources
-        for source in self.registry.iter_sources(stat_id) {
+        for source in guard.get_sources(stat_id) {
             let value = source.get_value(stat_id, context);
             base_value += value;
             source_count += 1;
@@ -683,23 +693,22 @@ impl StatResolver {
         }
 
         // Step 2: Apply transforms grouped by phase, then by stack rule
-        // Combine overlay and base transforms (overlay adds to base, doesn't shadow)
         let mut current_value = base_value;
 
-        // Collect all transforms (base first, then overlay)
-        let all_transforms: Vec<&TransformEntry> = self.registry.iter_transforms(stat_id).collect();
+        // Collect all transforms
+        let all_transforms = guard.get_transforms(stat_id);
 
         if !all_transforms.is_empty() {
             // Group transforms by phase
             let mut transforms_by_phase: std::collections::BTreeMap<u8, Vec<&TransformEntry>> =
                 std::collections::BTreeMap::new();
 
-            for entry in all_transforms {
+            for entry in &all_transforms {
                 let phase_value = entry.phase.value();
                 transforms_by_phase
                     .entry(phase_value)
                     .or_default()
-                    .push(entry);
+                    .push(entry.as_ref());
             }
 
             // Apply transforms in phase order, with stack rules applied within each phase
