@@ -35,6 +35,21 @@ pub struct StatusEffect {
     pub stack_behavior: StackBehavior,
 }
 
+/// Bir olay gerçekleştiğinde (örn. hasar alma) çalışacak reaktif tetikleyici tanımı.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EffectTrigger {
+    /// Tetiklenmeyi başlatan olayın adı (örn. "on_hit", "on_crit").
+    pub event: String,
+    /// Tetiklenmenin çalışması için gereken koşul (isteğe bağlı).
+    pub condition: Option<crate::condition::ConditionDef>,
+    /// Tetiklenme gerçekleştiğinde uygulanacak durum etkisi.
+    pub effect: StatusEffect,
+    /// Uygulanacak etkinin süresi.
+    pub duration_ticks: Option<u32>,
+    /// Uygulanacak etkinin yük sayısı.
+    pub stacks: u32,
+}
+
 /// An active instance of a status effect on an entity.
 #[derive(Debug, Clone)]
 pub struct ActiveStatusEffect {
@@ -63,6 +78,7 @@ impl ActiveStatusEffect {
 /// Manages active status effects and provides an overlaid `StatResolver`.
 pub struct StatusEffectManager {
     pub active_effects: Vec<ActiveStatusEffect>,
+    pub triggers: Vec<EffectTrigger>,
     dirty: bool,
     active_resolver: Option<StatResolver>,
 }
@@ -78,8 +94,35 @@ impl StatusEffectManager {
     pub fn new() -> Self {
         Self {
             active_effects: Vec::new(),
+            triggers: Vec::new(),
             dirty: true,
             active_resolver: None,
+        }
+    }
+
+    /// Reaktif bir durum etkisi tetikleyicisi kaydeder.
+    pub fn register_trigger(&mut self, trigger: EffectTrigger) {
+        self.triggers.push(trigger);
+    }
+
+    /// Bir oyun olayı gerçekleştiğinde tetikleyicileri değerlendirir ve eşleşen etkileri uygular.
+    pub fn fire_event(&mut self, event_name: &str, context: &crate::context::StatContext) {
+        let triggers_to_fire: Vec<(StatusEffect, Option<u32>, u32)> = self
+            .triggers
+            .iter()
+            .filter(|t| t.event == event_name)
+            .filter(|t| {
+                if let Some(ref cond) = t.condition {
+                    cond.evaluate(context)
+                } else {
+                    true
+                }
+            })
+            .map(|t| (t.effect.clone(), t.duration_ticks, t.stacks))
+            .collect();
+
+        for (effect, duration, stacks) in triggers_to_fire {
+            self.add_status_effect(effect, duration, stacks);
         }
     }
 
@@ -281,5 +324,63 @@ mod tests {
             .resolve(&def_id, &context)
             .unwrap();
         assert_eq!(def.value.to_f64(), 30.0); // -20 total
+    }
+
+    #[test]
+    fn test_status_effect_manager_triggers() {
+        let mut base_resolver = StatResolver::new();
+        let hp_id = StatId::from("HP");
+        let def_id = StatId::from("DEF");
+        base_resolver.register_source(hp_id.clone(), Box::new(ConstantSource(100.0)));
+        base_resolver.register_source(def_id.clone(), Box::new(ConstantSource(50.0)));
+
+        let mut status_manager = StatusEffectManager::new();
+
+        // 1. Define defensive shield effect
+        let shield_effect = StatusEffect {
+            id: "EFFECT_SHIELD".to_string(),
+            name: "Shield".to_string(),
+            bonuses: vec![Bonus::add(def_id.clone())
+                .flat(30.0)
+                .in_phase(crate::transform::TransformPhase::Additive)],
+            max_stacks: 1,
+            stack_behavior: StackBehavior::Refresh,
+        };
+
+        // 2. Define trigger: on low HP (less than 30)
+        let condition = crate::condition::ConditionDef::LessThan {
+            key: "current_hp".to_string(),
+            value: 30.0,
+        };
+        let trigger = EffectTrigger {
+            event: "on_damage_taken".to_string(),
+            condition: Some(condition),
+            effect: shield_effect,
+            duration_ticks: Some(3),
+            stacks: 1,
+        };
+
+        status_manager.register_trigger(trigger);
+
+        // Scenario A: Damage taken but HP is high (70) -> Trigger does not fire
+        let mut context = StatContext::new();
+        context.set("current_hp", 70.0);
+        status_manager.fire_event("on_damage_taken", &context);
+
+        let def = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&def_id, &context)
+            .unwrap();
+        assert_eq!(def.value.to_f64(), 50.0); // Shield not applied
+
+        // Scenario B: Damage taken and HP is low (20) -> Trigger fires
+        context.set("current_hp", 20.0);
+        status_manager.fire_event("on_damage_taken", &context);
+
+        let def = status_manager
+            .get_active_resolver(&base_resolver)
+            .resolve(&def_id, &context)
+            .unwrap();
+        assert_eq!(def.value.to_f64(), 80.0); // Shield applied (+30 DEF)
     }
 }
