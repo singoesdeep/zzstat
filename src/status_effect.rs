@@ -1,6 +1,6 @@
 //! Status Effects (Buff/Debuff) module.
 //!
-//! Provides a `StatusManager` to handle temporary effects that modify stats.
+//! Provides a `StatusEffectManager` to handle temporary effects that modify stats.
 //! It uses `StatResolver::fork()` to apply bonuses efficiently without modifying
 //! the base stats.
 
@@ -37,14 +37,14 @@ pub struct StatusEffect {
 
 /// An active instance of a status effect on an entity.
 #[derive(Debug, Clone)]
-pub struct ActiveStatus {
+pub struct ActiveStatusEffect {
     pub effect: StatusEffect,
     pub current_stacks: u32,
     pub duration_ticks: Option<u32>, // None = permanent
     pub compiled_bonuses: Vec<CompiledBonus<crate::numeric::StatValue>>,
 }
 
-impl ActiveStatus {
+impl ActiveStatusEffect {
     pub fn new(effect: StatusEffect, duration_ticks: Option<u32>, stacks: u32) -> Self {
         let compiled = effect
             .bonuses
@@ -61,35 +61,35 @@ impl ActiveStatus {
 }
 
 /// Manages active status effects and provides an overlaid `StatResolver`.
-pub struct StatusManager {
-    pub active_statuses: Vec<ActiveStatus>,
+pub struct StatusEffectManager {
+    pub active_effects: Vec<ActiveStatusEffect>,
     dirty: bool,
     active_resolver: Option<StatResolver>,
 }
 
-impl Default for StatusManager {
+impl Default for StatusEffectManager {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl StatusManager {
-    /// Creates a new, empty StatusManager.
+impl StatusEffectManager {
+    /// Creates a new, empty StatusEffectManager.
     pub fn new() -> Self {
         Self {
-            active_statuses: Vec::new(),
+            active_effects: Vec::new(),
             dirty: true,
             active_resolver: None,
         }
     }
 
     /// Adds or updates a status effect.
-    pub fn add_status(&mut self, effect: StatusEffect, duration_ticks: Option<u32>, stacks: u32) {
+    pub fn add_status_effect(&mut self, effect: StatusEffect, duration_ticks: Option<u32>, stacks: u32) {
         let effect_id = effect.id.clone();
 
         if effect.stack_behavior != StackBehavior::Independent {
             if let Some(existing) = self
-                .active_statuses
+                .active_effects
                 .iter_mut()
                 .find(|s| s.effect.id == effect_id)
             {
@@ -105,7 +105,7 @@ impl StatusManager {
                         }
                     }
                     _ => {}
-                }
+                  }
                 self.dirty = true;
                 return;
             }
@@ -113,17 +113,17 @@ impl StatusManager {
 
         // If independent or not found, add as new
         let stacks = stacks.min(effect.max_stacks).max(1);
-        self.active_statuses
-            .push(ActiveStatus::new(effect, duration_ticks, stacks));
+        self.active_effects
+            .push(ActiveStatusEffect::new(effect, duration_ticks, stacks));
         self.dirty = true;
     }
 
-    /// Advances the duration of all active statuses by one tick.
-    /// Removes expired statuses.
+    /// Advances the duration of all active status effects by one tick.
+    /// Removes expired effects.
     pub fn tick(&mut self) {
         let mut expired = false;
 
-        self.active_statuses.retain_mut(|status| {
+        self.active_effects.retain_mut(|status| {
             if let Some(ref mut ticks) = status.duration_ticks {
                 if *ticks > 0 {
                     *ticks -= 1;
@@ -146,17 +146,17 @@ impl StatusManager {
         }
     }
 
-    /// Removes a status by ID.
-    pub fn remove_status(&mut self, effect_id: &str) {
-        let original_len = self.active_statuses.len();
-        self.active_statuses.retain(|s| s.effect.id != effect_id);
-        if self.active_statuses.len() != original_len {
+    /// Removes a status effect by ID.
+    pub fn remove_status_effect(&mut self, effect_id: &str) {
+        let original_len = self.active_effects.len();
+        self.active_effects.retain(|s| s.effect.id != effect_id);
+        if self.active_effects.len() != original_len {
             self.dirty = true;
         }
     }
 
-    /// Returns a `StatResolver` with all active statuses applied as overlays.
-    /// Reuses the cached resolver if no statuses have changed.
+    /// Returns a `StatResolver` with all active status effects applied as overlays.
+    /// Reuses the cached resolver if no status effects have changed.
     pub fn get_active_resolver<'a>(
         &'a mut self,
         base_resolver: &StatResolver,
@@ -164,7 +164,7 @@ impl StatusManager {
         if self.dirty || self.active_resolver.is_none() {
             let mut fork = base_resolver.fork();
 
-            for status in &self.active_statuses {
+            for status in &self.active_effects {
                 // Apply bonuses multiple times based on stacks
                 for _ in 0..status.current_stacks {
                     apply_compiled_bonuses(&mut fork, &status.compiled_bonuses);
@@ -188,12 +188,12 @@ mod tests {
     use crate::stat_id::StatId;
 
     #[test]
-    fn test_status_manager_buffs() {
+    fn test_status_effect_manager_buffs() {
         let mut base_resolver = StatResolver::new();
         let atk_id = StatId::from("ATK");
         base_resolver.register_source(atk_id.clone(), Box::new(ConstantSource(100.0)));
 
-        let mut status_manager = StatusManager::new();
+        let mut status_manager = StatusEffectManager::new();
 
         // Check base
         let context = StatContext::new();
@@ -214,7 +214,7 @@ mod tests {
             stack_behavior: StackBehavior::Refresh,
         };
 
-        status_manager.add_status(buff, Some(2), 1); // Lasts 2 ticks
+        status_manager.add_status_effect(buff, Some(2), 1); // Lasts 2 ticks
 
         // Check buffed
         let atk = status_manager
@@ -241,12 +241,12 @@ mod tests {
     }
 
     #[test]
-    fn test_status_manager_accumulation() {
+    fn test_status_effect_manager_accumulation() {
         let mut base_resolver = StatResolver::new();
         let def_id = StatId::from("DEF");
         base_resolver.register_source(def_id.clone(), Box::new(ConstantSource(50.0)));
 
-        let mut status_manager = StatusManager::new();
+        let mut status_manager = StatusEffectManager::new();
         let context = StatContext::new();
 
         let debuff = StatusEffect {
@@ -262,7 +262,7 @@ mod tests {
         };
 
         // Stack 1
-        status_manager.add_status(debuff.clone(), Some(3), 1);
+        status_manager.add_status_effect(debuff.clone(), Some(3), 1);
         let def = status_manager
             .get_active_resolver(&base_resolver)
             .resolve(&def_id, &context)
@@ -270,7 +270,7 @@ mod tests {
         assert_eq!(def.value.to_f64(), 40.0);
 
         // Stack 2
-        status_manager.add_status(debuff.clone(), Some(3), 1);
+        status_manager.add_status_effect(debuff.clone(), Some(3), 1);
         let def = status_manager
             .get_active_resolver(&base_resolver)
             .resolve(&def_id, &context)

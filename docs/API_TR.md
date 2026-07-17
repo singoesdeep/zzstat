@@ -7,7 +7,7 @@
 2. [StatRegistry ve StatResolver](#2-statregistry-ve-statresolver)
 3. [BonusAction API (Eşyalar ve Modifierlar)](#3-bonusaction-api)
 4. [ResourcePool (HP, Mana ve Sınırlandırmalar)](#4-resourcepool)
-5. [StatusManager (Geçici Buff ve Debufflar)](#5-statusmanager)
+5. [StatusEffectManager (Geçici Buff ve Debufflar)](#5-statuseffectmanager)
 6. [Combat Engine (Savaş Motoru ve Formüller)](#6-combat-engine)
 
 ---
@@ -145,14 +145,14 @@ for _ in 0..3 {
 
 ---
 
-## 5. StatusManager
+## 5. StatusEffectManager
 
-`StatusManager`, `O(1)` bellek tahsisatı yapan devasa hızdaki copy-on-write `fork()` mekanizmasını kullanır. Bir karakterin taban statlarını ASLA bozmadan üzerine istediğiniz kadar geçici buff (iksir, büyü vs.) ekleyebilirsiniz.
+`StatusEffectManager`, `O(1)` bellek tahsisatı yapan devasa hızdaki copy-on-write `fork()` mekanizmasını kullanır. Bir karakterin taban statlarını ASLA bozmadan üzerine istediğiniz kadar geçici buff (iksir, büyü vs.) ekleyebilirsiniz.
 
 ```rust
-use zzstat::status::{StatusManager, StatusEffect, StackBehavior};
+use zzstat::status_effect::{StatusEffectManager, StatusEffect, StackBehavior};
 
-let mut status_manager = StatusManager::new();
+let mut status_manager = StatusEffectManager::new();
 
 // Bir Savaş Çığlığı (Buff) Yaratalım
 let warcry = StatusEffect {
@@ -164,7 +164,7 @@ let warcry = StatusEffect {
 };
 
 // Buff'ı 5 saniye (tick) boyunca karakterin üzerine ekleyelim
-status_manager.add_status(warcry, Some(5), 1);
+status_manager.add_status_effect(warcry, Some(5), 1);
 
 // Zurnanın zırt dediği yer: Mevcut statların üzerine buff'ı UYGULA ve ÇATALLA!
 let mut active_resolver = status_manager.get_active_resolver(&base_resolver);

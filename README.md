@@ -9,7 +9,7 @@ A highly optimized, completely data-driven, and deterministic stat calculation e
 - **JSON Data-Driven:** Define your stat formulas, buffs, combat skills, and conditional abilities entirely in JSON. Let Game Designers balance the game without touching Rust code.
 - **Dependency Graph Resolution:** Automatically resolves complex dependency chains (`ATK = STR * 2`, `DAMAGE = ATK - DEF`) with topological sorting and cycle detection.
 - **Resource Pools & DoT/HoT:** Track stateful values like Current HP/MP, apply Damage over Time (Poison), and trigger custom Events (like `DEATH`).
-- **Temporary Status Effects (Buffs & Debuffs):** A `StatusManager` that seamlessly applies temporary buffs using `fork()`, ensuring the character's base stats are never mutated. Supports stacking behaviors (`Refresh`, `Accumulate`, `Independent`).
+- **Temporary Status Effects (Buffs & Debuffs):** A `StatusEffectManager` that seamlessly applies temporary buffs using `fork()`, ensuring the character's base stats are never mutated. Supports stacking behaviors (`Refresh`, `Accumulate`, `Independent`).
 - **Combat Engine (AST):** A fully JSON-driven Combat Abstract Syntax Tree (AST). Calculate complex damages involving `Chance` nodes (Crit, Dodge, Block) deterministically.
 - **AI-Ready Guidelines:** Includes `AI_PROMPT.md` out-of-the-box so you can instantly generate perfectly valid JSON files using AI assistants like ChatGPT, Claude, or Copilot.
 - **Modular & High Performance:** Fully decoupled `StatRegistry` and `StatResolver` using `rustc_hash::FxHashMap` for blazingly fast `O(1)` operations.
@@ -55,7 +55,7 @@ hp_pool.add_trigger(ThresholdTrigger {
 });
 ```
 
-### 3. StatusManager (Temporary Buffs/Debuffs)
+### 3. StatusEffectManager (Temporary Buffs/Debuffs)
 Adding a temporary buff shouldn't permanently alter the base stats. `zzstat` uses an `O(1)` copy-on-write `fork()` method to overlay stats dynamically.
 
 ```rust
@@ -68,7 +68,7 @@ let buff = StatusEffect {
 };
 
 // Add 50 ATK for 3 ticks
-status_manager.add_status(buff, Some(3), 1);
+status_manager.add_status_effect(buff, Some(3), 1);
 
 // Use the active resolver safely
 let current_atk = status_manager.get_active_resolver(&base_resolver).resolve(&atk_id, &ctx);

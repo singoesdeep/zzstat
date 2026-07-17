@@ -75,7 +75,7 @@ pub mod resolver;
 pub mod resource;
 pub mod source;
 pub mod stat_id;
-pub mod status;
+pub mod status_effect;
 pub mod template;
 pub mod transform;
 

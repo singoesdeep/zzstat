@@ -7,7 +7,7 @@ Welcome to the **zzstat** API documentation! This guide provides detailed exampl
 2. [StatRegistry & StatResolver](#2-statregistry--statresolver)
 3. [BonusAction API (Items & Modifiers)](#3-bonusaction-api)
 4. [ResourcePool (HP, Mana & Clamping)](#4-resourcepool)
-5. [StatusManager (Buffs & Debuffs)](#5-statusmanager)
+5. [StatusEffectManager (Buffs & Debuffs)](#5-statuseffectmanager)
 6. [Combat Engine (Formulas & AST)](#6-combat-engine)
 
 ---
@@ -145,14 +145,14 @@ for _ in 0..3 {
 
 ---
 
-## 5. StatusManager
+## 5. StatusEffectManager
 
-StatusManager provides an `O(1)` copy-on-write `fork()` mechanism. This allows you to apply temporary buffs to a character without mutating their base `StatResolver`!
+StatusEffectManager provides an `O(1)` copy-on-write `fork()` mechanism. This allows you to apply temporary buffs to a character without mutating their base `StatResolver`!
 
 ```rust
-use zzstat::status::{StatusManager, StatusEffect, StackBehavior};
+use zzstat::status_effect::{StatusEffectManager, StatusEffect, StackBehavior};
 
-let mut status_manager = StatusManager::new();
+let mut status_manager = StatusEffectManager::new();
 
 // Create a buff
 let warcry = StatusEffect {
@@ -164,7 +164,7 @@ let warcry = StatusEffect {
 };
 
 // Apply buff for 5 ticks, with 1 stack
-status_manager.add_status(warcry, Some(5), 1);
+status_manager.add_status_effect(warcry, Some(5), 1);
 
 // Generate a forked resolver containing the base stats + buff stats
 let mut active_resolver = status_manager.get_active_resolver(&base_resolver);

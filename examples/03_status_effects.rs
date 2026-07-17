@@ -1,4 +1,4 @@
-//! Example 03: Temporary Buffs & Debuffs (StatusManager)
+//! Example 03: Temporary Buffs & Debuffs (StatusEffectManager)
 //!
 //! Demonstrates how `zzstat` handles temporary effects using the zero-cost
 //! `.fork()` overlay system. Base stats are never mutated, and buffs are
@@ -9,7 +9,7 @@ use zzstat::context::StatContext;
 use zzstat::resolver::StatResolver;
 use zzstat::source::ConstantSource;
 use zzstat::stat_id::StatId;
-use zzstat::status::{StackBehavior, StatusEffect, StatusManager};
+use zzstat::status_effect::{StackBehavior, StatusEffect, StatusEffectManager};
 use zzstat::StatNumeric;
 
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
     // Base defense is 100
     base_resolver.register_source(def_id.clone(), Box::new(ConstantSource(100.0)));
 
-    let mut status_manager = StatusManager::new();
+    let mut status_manager = StatusEffectManager::new();
     let ctx = StatContext::new();
 
     // 1. Check Initial Base Defense
@@ -44,7 +44,7 @@ fn main() {
 
     // 3. Apply Stack 1 (Duration: 3 ticks)
     println!("--- Applying Sunder Armor (Stack 1) ---");
-    status_manager.add_status(sunder_armor.clone(), Some(3), 1);
+    status_manager.add_status_effect(sunder_armor.clone(), Some(3), 1);
 
     let def_1 = status_manager
         .get_active_resolver(&base_resolver)
@@ -54,7 +54,7 @@ fn main() {
 
     // 4. Apply Stack 2
     println!("--- Applying Sunder Armor (Stack 2) ---");
-    status_manager.add_status(sunder_armor.clone(), Some(3), 1);
+    status_manager.add_status_effect(sunder_armor.clone(), Some(3), 1);
 
     let def_2 = status_manager
         .get_active_resolver(&base_resolver)
