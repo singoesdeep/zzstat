@@ -1,34 +1,7 @@
-[package]
-name = "zzstat"
-version = "0.5.0"
-edition = "2021"
-license = "MIT"
-description = "A deterministic, hardcode-free stat calculation engine designed for MMORPGs"
-repository = "https://github.com/singoesdeep/zzstat"
-authors = ["singoesdeep"]
-keywords = ["game", "mmorpg", "stats", "calculation", "deterministic"]
-categories = ["game-development", "algorithms"]
-include = [
-    "src/**/*",
-    "Cargo.toml",
-    "README.md",
-    "LICENSE"
+[workspace]
+resolver = "2"
+members = [
+    "crates/zzstat-core",
+    "crates/zzstat-ffi",
+    "crates/zzstat-cli",
 ]
-
-[dependencies]
-petgraph = "0.8"
-thiserror = "2.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-rustc-hash = "2.1"
-
-[features]
-default = []
-fixed-point = []
-
-[[example]]
-name = "metin2"
-path = "examples/metin2/main.rs"
-
-[dev-dependencies]
-bevy = { version = "0.14", default-features = false, features = ["bevy_asset", "bevy_state"] }

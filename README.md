@@ -197,5 +197,145 @@ Additionally, check out the `docs/` folder in the repository for detailed guides
 
 ---
 
+## 🏗️ Reusable Multi-Language Architecture
+
+zzstat is built as a reusable stat engine library rather than a Rust-only package. The core engine is written in Rust, and it exposes an FFI-compatible C ABI layer. Other languages consume it dynamically, avoiding the need to run a microservice or rewrite the calculation logic.
+
+```
+                zzstat-core
+                    |
+                  Rust
+                    |
+              C ABI / FFI Layer (zzstat-ffi)
+                    |
+        ----------------------------
+        |             |            |
+       Go          Python        C# (Unity)
+```
+
+### Usage Modes
+
+1. **Native Rust library:** Directly add `zzstat` package to your Cargo.toml and use it inside your Rust application.
+2. **Embedded application through bindings:** Compile the C ABI layer (`zzstat-ffi`) and load the shared library (`.so`, `.dylib`, `.dll`) dynamically in Go, Python, C#, or any other language supporting FFI/dynamic linking.
+3. **Optional future gRPC service:** Build a lightweight gRPC server on top of the core engine if you require network-based microservices.
+
+---
+
+## 🛠️ Building Native Libraries
+
+To compile the FFI library for dynamic loading:
+
+```bash
+# Build the dynamic library in release mode
+cargo build --release -p zzstat-ffi
+```
+
+This will produce:
+- Linux: `target/release/libzzstat_ffi.so`
+- macOS: `target/release/libzzstat_ffi.dylib`
+- Windows: `target/release/zzstat_ffi.dll`
+
+---
+
+## 🐹 Go Bindings (Purego)
+
+The Go binding package is purego-compatible, meaning it requires **zero CGO dependencies** and loads the library dynamically at runtime.
+
+### Installation & Setup
+
+1. Copy or build `libzzstat_ffi.so` to your library path.
+2. Import the Go package:
+
+```go
+import "github.com/singoesdeep/zzstat/bindings/go"
+```
+
+### Example Usage
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/singoesdeep/zzstat/bindings/go"
+)
+
+func main() {
+    resolver := zzstat.NewResolver()
+    defer resolver.Free()
+
+    ctx := zzstat.NewContext()
+    defer ctx.Free()
+
+    // Register constant sources
+    resolver.RegisterConstantSource("HP", 100.0)
+    resolver.RegisterConstantSource("HP", 50.0)
+
+    // Register a multiplier (+50%)
+    resolver.RegisterMultiplicativeTransform("HP", zzstat.PhaseMultiplicative, zzstat.RuleMultiplicative, 1.5)
+
+    // Resolve HP: (100 + 50) * 1.5 = 225.0
+    val, _ := resolver.Resolve("HP", ctx)
+    fmt.Printf("Resolved HP: %f\n", val)
+}
+```
+
+---
+
+## 🐍 Python Bindings (ctypes)
+
+The Python bindings use `ctypes` (standard library, zero external dependencies) to dynamically load and call the FFI layer.
+
+### Example Usage
+
+```python
+import zzstat
+
+# Initialize resolver and context
+resolver = zzstat.StatResolver()
+ctx = zzstat.StatContext()
+
+# Register sources
+resolver.register_constant_source("HP", 100.0)
+resolver.register_constant_source("HP", 50.0)
+
+# Register multiplicative transform
+resolver.register_multiplicative_transform(
+    "HP",
+    zzstat.StatResolver.PHASE_MULTIPLICATIVE,
+    zzstat.StatResolver.RULE_MULTIPLICATIVE,
+    1.5
+)
+
+# Resolve HP
+hp = resolver.resolve("HP", ctx)
+print(f"Resolved HP: {hp}")  # 225.0
+```
+
+---
+
+## 🎮 C# & Unity Bindings
+
+The C# wrapper uses standard P/Invoke signatures, allowing direct integration into Unity or .NET environments.
+
+### Example Usage
+
+```csharp
+using Zzstat;
+
+using (var resolver = new StatResolver())
+using (var ctx = new StatContext())
+{
+    resolver.RegisterConstantSource("HP", 100.0);
+    resolver.RegisterConstantSource("HP", 50.0);
+    resolver.RegisterMultiplicativeTransform("HP", StatResolver.PHASE_MULTIPLICATIVE, StatResolver.RULE_MULTIPLICATIVE, 1.5);
+
+    double hp = resolver.Resolve("HP", ctx);
+    System.Console.WriteLine($"Resolved HP: {hp}"); // 225.0
+}
+```
+
+---
+
 ## License
 This project is licensed under the MIT License.
