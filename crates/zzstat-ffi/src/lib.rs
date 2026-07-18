@@ -1,10 +1,12 @@
+#![allow(clippy::missing_safety_doc)]
+
 use std::ffi::{c_char, c_void, CStr};
 use std::panic::catch_unwind;
 use zzstat::combat::{CombatEngine, CombatFormula};
 use zzstat::{
-    AdditiveTransform, ClampTransform, ConstantSource, MultiplicativeTransform,
-    ScalingTransform, StackRule, StatContext, StatError, StatId, StatNumeric, StatResolver,
-    StatValue, TransformPhase, ConditionalTransform,
+    AdditiveTransform, ClampTransform, ConditionalTransform, ConstantSource,
+    MultiplicativeTransform, ScalingTransform, StackRule, StatContext, StatError, StatId,
+    StatNumeric, StatResolver, StatValue, TransformPhase,
 };
 
 // Error codes
@@ -171,7 +173,10 @@ pub unsafe extern "C" fn zzstat_resolver_register_map_source(
             Some(s) => s,
             None => return ZZSTAT_ERROR_NULL_POINTER,
         };
-        resolver.register_source(StatId::from(stat_str), Box::new(ConstantSource(values_slice[i])));
+        resolver.register_source(
+            StatId::from(stat_str),
+            Box::new(ConstantSource(values_slice[i])),
+        );
     }
     ZZSTAT_SUCCESS
 }
@@ -194,9 +199,7 @@ pub unsafe extern "C" fn zzstat_resolver_invalidate(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn zzstat_resolver_invalidate_all(
-    resolver: *mut StatResolver,
-) -> i32 {
+pub unsafe extern "C" fn zzstat_resolver_invalidate_all(resolver: *mut StatResolver) -> i32 {
     if resolver.is_null() {
         return ZZSTAT_ERROR_NULL_POINTER;
     }
@@ -295,8 +298,16 @@ pub unsafe extern "C" fn zzstat_resolver_register_clamp_transform(
         Some(s) => s,
         None => return ZZSTAT_ERROR_NULL_POINTER,
     };
-    let min_opt = if has_min { Some(StatValue::from_f64(min_val)) } else { None };
-    let max_opt = if has_max { Some(StatValue::from_f64(max_val)) } else { None };
+    let min_opt = if has_min {
+        Some(StatValue::from_f64(min_val))
+    } else {
+        None
+    };
+    let max_opt = if has_max {
+        Some(StatValue::from_f64(max_val))
+    } else {
+        None
+    };
     resolver.register_transform_with_rule(
         StatId::from(stat_str),
         map_phase(phase),
@@ -336,7 +347,8 @@ pub unsafe extern "C" fn zzstat_resolver_register_scaling_transform(
     ZZSTAT_SUCCESS
 }
 
-pub type ConditionCallback = unsafe extern "C" fn(ctx: *const StatContext, user_data: *mut c_void) -> bool;
+pub type ConditionCallback =
+    unsafe extern "C" fn(ctx: *const StatContext, user_data: *mut c_void) -> bool;
 pub type FreeUserDataCallback = unsafe extern "C" fn(user_data: *mut c_void);
 
 struct FfiCondition {
@@ -360,9 +372,7 @@ impl Drop for FfiCondition {
 
 impl FfiCondition {
     fn evaluate(&self, ctx: &StatContext) -> bool {
-        unsafe {
-            (self.callback)(ctx as *const StatContext, self.user_data)
-        }
+        unsafe { (self.callback)(ctx as *const StatContext, self.user_data) }
     }
 }
 
@@ -386,10 +396,7 @@ pub unsafe extern "C" fn zzstat_resolver_register_conditional_multiplicative_tra
         Some(s) => s,
         None => return ZZSTAT_ERROR_NULL_POINTER,
     };
-    let desc_str = match c_str_to_str(description) {
-        Some(s) => s,
-        None => "conditional multiplicative",
-    };
+    let desc_str = c_str_to_str(description).unwrap_or("conditional multiplicative");
 
     let ffi_cond = FfiCondition {
         callback,
@@ -398,11 +405,8 @@ pub unsafe extern "C" fn zzstat_resolver_register_conditional_multiplicative_tra
     };
 
     let inner = Box::new(MultiplicativeTransform::new(multiplier));
-    let cond_transform = ConditionalTransform::new(
-        move |ctx| ffi_cond.evaluate(ctx),
-        inner,
-        desc_str,
-    );
+    let cond_transform =
+        ConditionalTransform::new(move |ctx| ffi_cond.evaluate(ctx), inner, desc_str);
 
     resolver.register_transform_with_rule(
         StatId::from(stat_str),
@@ -433,10 +437,7 @@ pub unsafe extern "C" fn zzstat_resolver_register_conditional_additive_transform
         Some(s) => s,
         None => return ZZSTAT_ERROR_NULL_POINTER,
     };
-    let desc_str = match c_str_to_str(description) {
-        Some(s) => s,
-        None => "conditional additive",
-    };
+    let desc_str = c_str_to_str(description).unwrap_or("conditional additive");
 
     let ffi_cond = FfiCondition {
         callback,
@@ -445,11 +446,8 @@ pub unsafe extern "C" fn zzstat_resolver_register_conditional_additive_transform
     };
 
     let inner = Box::new(AdditiveTransform::new(bonus));
-    let cond_transform = ConditionalTransform::new(
-        move |ctx| ffi_cond.evaluate(ctx),
-        inner,
-        desc_str,
-    );
+    let cond_transform =
+        ConditionalTransform::new(move |ctx| ffi_cond.evaluate(ctx), inner, desc_str);
 
     resolver.register_transform_with_rule(
         StatId::from(stat_str),
@@ -504,8 +502,13 @@ pub unsafe extern "C" fn zzstat_combat_evaluate(
     rng_user_data: *mut c_void,
     out_result: *mut f64,
 ) -> i32 {
-    if formula_json.is_null() || attacker_resolver.is_null() || attacker_ctx.is_null() ||
-       defender_resolver.is_null() || defender_ctx.is_null() || out_result.is_null() {
+    if formula_json.is_null()
+        || attacker_resolver.is_null()
+        || attacker_ctx.is_null()
+        || defender_resolver.is_null()
+        || defender_ctx.is_null()
+        || out_result.is_null()
+    {
         return ZZSTAT_ERROR_NULL_POINTER;
     }
 
