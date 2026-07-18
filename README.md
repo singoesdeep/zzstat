@@ -151,7 +151,6 @@ graph TD
     WEAPON_MIN ==> WEAPON_AVG
     WEAPON_MAX ==> WEAPON_AVG
 ```
-```
 
 ### 6. New in v0.5.0: Conditional Buffs, Triggers & Hierarchy
 - **Conditional Status Effects:** Apply conditional requirements to item/buff modifiers using `.with_condition(condition)`.
