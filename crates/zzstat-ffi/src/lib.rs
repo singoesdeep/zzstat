@@ -3,6 +3,8 @@
 use std::ffi::{c_char, c_void, CStr};
 use std::panic::catch_unwind;
 use zzstat::combat::{CombatEngine, CombatFormula};
+#[allow(unused_imports)]
+use zzstat::combat::CombatOutcome;
 use zzstat::{
     AdditiveTransform, ClampTransform, ConditionalTransform, ConstantSource,
     MultiplicativeTransform, ScalingTransform, StackRule, StatContext, StatError, StatId,
@@ -498,7 +500,7 @@ pub unsafe extern "C" fn zzstat_combat_evaluate(
     attacker_ctx: *const StatContext,
     defender_resolver: *mut StatResolver,
     defender_ctx: *const StatContext,
-    rng_callback: Option<unsafe extern "C" fn(user_data: *mut c_void) -> f64>,
+    rng_callback: Option<unsafe extern "C" fn(user_data: *mut c_void) -> u64>,
     rng_user_data: *mut c_void,
     out_result: *mut f64,
 ) -> i32 {
@@ -530,7 +532,7 @@ pub unsafe extern "C" fn zzstat_combat_evaluate(
     let res = catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut rng = move || {
             if let Some(cb) = rng_callback {
-                cb(rng_user_data)
+                f64::from_bits(cb(rng_user_data))
             } else {
                 0.0
             }
@@ -548,6 +550,86 @@ pub unsafe extern "C" fn zzstat_combat_evaluate(
     match res {
         Ok(Ok(val)) => {
             *out_result = val;
+            ZZSTAT_SUCCESS
+        }
+        Ok(Err(err)) => map_error(&err),
+        Err(_) => ZZSTAT_ERROR_PANIC,
+    }
+}
+
+/// Combat formülünü değerlendirir ve sayısal sonucun yanında formülün set
+/// ettiği bayrakları da döndürür. `out_is_hit` / `out_is_crit`, formüldeki
+/// `Flag { name: "hit" | "crit" }` düğümlerinin o değerlendirmede tetiklenip
+/// tetiklenmediğini (1/0) yansıtır. Diğer parametreler `zzstat_combat_evaluate`
+/// ile aynıdır. out_is_hit / out_is_crit null olabilir (o bayrak yok sayılır).
+///
+/// # Safety
+/// Tüm işaretçiler geçerli ve doğru tipte olmalıdır; out_result null olamaz.
+#[no_mangle]
+pub unsafe extern "C" fn zzstat_combat_evaluate_ex(
+    formula_json: *const c_char,
+    attacker_resolver: *mut StatResolver,
+    attacker_ctx: *const StatContext,
+    defender_resolver: *mut StatResolver,
+    defender_ctx: *const StatContext,
+    rng_callback: Option<unsafe extern "C" fn(user_data: *mut c_void) -> u64>,
+    rng_user_data: *mut c_void,
+    out_result: *mut f64,
+    out_is_hit: *mut i32,
+    out_is_crit: *mut i32,
+) -> i32 {
+    if formula_json.is_null()
+        || attacker_resolver.is_null()
+        || attacker_ctx.is_null()
+        || defender_resolver.is_null()
+        || defender_ctx.is_null()
+        || out_result.is_null()
+    {
+        return ZZSTAT_ERROR_NULL_POINTER;
+    }
+
+    let formula_str = match c_str_to_str(formula_json) {
+        Some(s) => s,
+        None => return ZZSTAT_ERROR_NULL_POINTER,
+    };
+
+    let formula: CombatFormula = match serde_json::from_str(formula_str) {
+        Ok(f) => f,
+        Err(_) => return ZZSTAT_ERROR_JSON_ERROR,
+    };
+
+    let attacker_resolver = &mut *attacker_resolver;
+    let attacker_ctx = &*attacker_ctx;
+    let defender_resolver = &mut *defender_resolver;
+    let defender_ctx = &*defender_ctx;
+
+    let res = catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut rng = move || {
+            if let Some(cb) = rng_callback {
+                f64::from_bits(cb(rng_user_data))
+            } else {
+                0.0
+            }
+        };
+        CombatEngine::evaluate_ex(
+            &formula,
+            attacker_resolver,
+            attacker_ctx,
+            defender_resolver,
+            defender_ctx,
+            &mut rng,
+        )
+    }));
+
+    match res {
+        Ok(Ok(outcome)) => {
+            *out_result = outcome.value;
+            if !out_is_hit.is_null() {
+                *out_is_hit = i32::from(outcome.flags.get("hit").copied().unwrap_or(false));
+            }
+            if !out_is_crit.is_null() {
+                *out_is_crit = i32::from(outcome.flags.get("crit").copied().unwrap_or(false));
+            }
             ZZSTAT_SUCCESS
         }
         Ok(Err(err)) => map_error(&err),

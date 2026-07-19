@@ -2,35 +2,39 @@ package zzstat
 
 import (
 	"fmt"
+	"math"
 	"runtime"
+	"sync"
+
 	"github.com/ebitengine/purego"
 )
 
 var (
 	lib uintptr
 
-	zzstat_context_new                            func() uintptr
-	zzstat_context_free                           func(uintptr)
-	zzstat_context_set_float                      func(uintptr, *byte, float64) int32
-	zzstat_context_get_float                      func(uintptr, *byte, float64) float64
-	zzstat_context_set_bool                       func(uintptr, *byte, bool) int32
-	zzstat_context_get_bool                       func(uintptr, *byte, bool) bool
+	zzstat_context_new       func() uintptr
+	zzstat_context_free      func(uintptr)
+	zzstat_context_set_float func(uintptr, *byte, float64) int32
+	zzstat_context_get_float func(uintptr, *byte, float64) float64
+	zzstat_context_set_bool  func(uintptr, *byte, bool) int32
+	zzstat_context_get_bool  func(uintptr, *byte, bool) bool
 
-	zzstat_resolver_new                           func() uintptr
-	zzstat_resolver_free                          func(uintptr)
-	zzstat_resolver_register_constant_source      func(uintptr, *byte, float64) int32
-	zzstat_resolver_register_map_source           func(uintptr, **byte, *float64, int) int32
-	zzstat_resolver_register_additive_transform   func(uintptr, *byte, byte, byte, float64) int32
-	zzstat_resolver_register_multiplicative_transform func(uintptr, *byte, byte, byte, float64) int32
-	zzstat_resolver_register_clamp_transform      func(uintptr, *byte, byte, byte, bool, float64, bool, float64) int32
-	zzstat_resolver_register_scaling_transform    func(uintptr, *byte, byte, byte, *byte, float64) int32
+	zzstat_resolver_new                                           func() uintptr
+	zzstat_resolver_free                                          func(uintptr)
+	zzstat_resolver_register_constant_source                      func(uintptr, *byte, float64) int32
+	zzstat_resolver_register_map_source                           func(uintptr, **byte, *float64, int) int32
+	zzstat_resolver_register_additive_transform                   func(uintptr, *byte, byte, byte, float64) int32
+	zzstat_resolver_register_multiplicative_transform             func(uintptr, *byte, byte, byte, float64) int32
+	zzstat_resolver_register_clamp_transform                      func(uintptr, *byte, byte, byte, bool, float64, bool, float64) int32
+	zzstat_resolver_register_scaling_transform                    func(uintptr, *byte, byte, byte, *byte, float64) int32
 	zzstat_resolver_register_conditional_multiplicative_transform func(uintptr, *byte, byte, byte, uintptr, uintptr, uintptr, float64, *byte) int32
-	zzstat_resolver_register_conditional_additive_transform func(uintptr, *byte, byte, byte, uintptr, uintptr, uintptr, float64, *byte) int32
-	zzstat_resolver_invalidate                    func(uintptr, *byte) int32
-	zzstat_resolver_invalidate_all                func(uintptr) int32
-	zzstat_resolver_resolve                       func(uintptr, *byte, uintptr, *float64) int32
+	zzstat_resolver_register_conditional_additive_transform       func(uintptr, *byte, byte, byte, uintptr, uintptr, uintptr, float64, *byte) int32
+	zzstat_resolver_invalidate                                    func(uintptr, *byte) int32
+	zzstat_resolver_invalidate_all                                func(uintptr) int32
+	zzstat_resolver_resolve                                       func(uintptr, *byte, uintptr, *float64) int32
 
-	zzstat_combat_evaluate                        func(*byte, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, *float64) int32
+	zzstat_combat_evaluate    func(*byte, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, *float64) int32
+	zzstat_combat_evaluate_ex func(*byte, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, *float64, *int32, *int32) int32
 )
 
 // LoadLibrary allows manually specifying the library path.
@@ -67,6 +71,7 @@ func bindFunctions() {
 	purego.RegisterLibFunc(&zzstat_resolver_resolve, lib, "zzstat_resolver_resolve")
 
 	purego.RegisterLibFunc(&zzstat_combat_evaluate, lib, "zzstat_combat_evaluate")
+	purego.RegisterLibFunc(&zzstat_combat_evaluate_ex, lib, "zzstat_combat_evaluate_ex")
 }
 
 func init() {
@@ -152,7 +157,10 @@ func (r *Resolver) Free() {
 
 func (r *Resolver) RegisterConstantSource(statID string, value float64) {
 	idBytes := []byte(statID + "\x00")
-	zzstat_resolver_register_constant_source(r.ptr, &idBytes[0], value)
+	res := zzstat_resolver_register_constant_source(r.ptr, &idBytes[0], value)
+	if res != 0 {
+		fmt.Printf("FFI ERROR: zzstat_resolver_register_constant_source(%s, %f) returned %d\n", statID, value, res)
+	}
 }
 
 func (r *Resolver) RegisterMapSource(source map[string]float64) {
@@ -293,8 +301,11 @@ func EvaluateCombat(formulaJSON string, attacker *Resolver, attackerCtx *Context
 
 	var cb uintptr
 	if rng != nil {
-		cb = purego.NewCallback(func(userData uintptr) float64 {
-			return rng()
+		// purego callbacks cannot return float64, so the RNG value crosses the
+		// FFI boundary as its IEEE-754 bit pattern (u64); the Rust side does
+		// f64::from_bits.
+		cb = purego.NewCallback(func(userData uintptr) uint64 {
+			return math.Float64bits(rng())
 		})
 	}
 
@@ -303,4 +314,52 @@ func EvaluateCombat(formulaJSON string, attacker *Resolver, attackerCtx *Context
 		return 0, fmt.Errorf("combat evaluation failed with error code: %d", res)
 	}
 	return outVal, nil
+}
+
+// purego.NewCallback registrations are process-global, capped, and never freed,
+// so we must NOT create one per call. Instead a single callback is registered
+// once and reads the RNG closure for the in-flight evaluation from combatRngFn,
+// guarded by combatRngMu (which also serializes concurrent evaluations — each
+// combat evaluation is a short synchronous FFI call, so this is acceptable).
+var (
+	combatRngMu  sync.Mutex
+	combatRngFn  func() float64
+	combatCbOnce sync.Once
+	combatCb     uintptr
+)
+
+func combatRngTrampoline(userData uintptr) uint64 {
+	if combatRngFn != nil {
+		return math.Float64bits(combatRngFn())
+	}
+	return math.Float64bits(0.0)
+}
+
+// EvaluateCombatEx evaluates a combat formula and also returns the "hit" and
+// "crit" flags set by Flag nodes in the formula. rng supplies the random draws
+// (0..1) the formula consumes, in evaluation order.
+func EvaluateCombatEx(formulaJSON string, attacker *Resolver, attackerCtx *Context, defender *Resolver, defenderCtx *Context, rng func() float64) (value float64, isHit bool, isCrit bool, err error) {
+	jsonBytes := []byte(formulaJSON + "\x00")
+	var outVal float64
+	var outHit, outCrit int32
+
+	combatRngMu.Lock()
+	defer combatRngMu.Unlock()
+
+	combatCbOnce.Do(func() {
+		combatCb = purego.NewCallback(combatRngTrampoline)
+	})
+
+	var cb uintptr
+	if rng != nil {
+		combatRngFn = rng
+		cb = combatCb
+	}
+	res := zzstat_combat_evaluate_ex(&jsonBytes[0], attacker.ptr, attackerCtx.ptr, defender.ptr, defenderCtx.ptr, cb, 0, &outVal, &outHit, &outCrit)
+	combatRngFn = nil
+
+	if res != 0 {
+		return 0, false, false, fmt.Errorf("combat evaluation failed with error code: %d", res)
+	}
+	return outVal, outHit != 0, outCrit != 0, nil
 }

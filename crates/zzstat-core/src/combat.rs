@@ -10,6 +10,18 @@ use crate::numeric::StatNumeric;
 use crate::resolver::StatResolver;
 use crate::stat_id::StatId;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// Bir savaş değerlendirmesi sırasında set edilen adlandırılmış bayraklar
+/// (ör. "hit", "crit"). `Flag` düğümleri doldurur; çağıran okur.
+pub type CombatFlags = BTreeMap<String, bool>;
+
+/// Bir savaş formülünün tam sonucu: sayısal değer + set edilen bayraklar.
+#[derive(Debug, Clone, Default)]
+pub struct CombatOutcome {
+    pub value: f64,
+    pub flags: CombatFlags,
+}
 
 /// Savaş sırasında okunacak verinin kaynağı.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -48,6 +60,21 @@ pub enum CombatExpression {
         max: Option<f64>,
         expr: Box<CombatExpression>,
     },
+    /// İki ifadeyi böler (left / right).
+    Divide {
+        left: Box<CombatExpression>,
+        right: Box<CombatExpression>,
+    },
+    /// [min, max] aralığında tek bir RNG çekilişiyle sürekli rastgele değer
+    /// üretir: min + rng() * (max - min). Hasar varyansı için kullanılır.
+    RandRange { min: f64, max: f64 },
+    /// İç ifadeyi değiştirmeden döndürür ama değerlendirildiğinde adlandırılmış
+    /// bir bayrağı (ör. "hit", "crit") set eder. Yalnızca kendi dalı seçildiğinde
+    /// çalıştığı için, o dalın gerçekten alındığını dışarıya bildirir.
+    Flag {
+        name: String,
+        expr: Box<CombatExpression>,
+    },
     /// Rastgelelik barındıran ihtimal bloğu.
     Chance {
         /// Başarı ihtimalini belirten stat (Örn: CRIT_CHANCE, 0.0 ile 1.0 arası)
@@ -72,6 +99,12 @@ pub enum Opcode {
     Subtract,
     /// Yığındaki son iki elemanı çeker, çarpar ve sonucu yığına ekler.
     Multiply,
+    /// Yığındaki son iki elemanı çeker, böler (a / b) ve sonucu yığına ekler.
+    Divide,
+    /// RNG çalıştırır ve min + rng()*(max-min) değerini yığına ekler.
+    RandRange { min: f64, max: f64 },
+    /// Adlandırılmış bayrağı set eder (yığını değiştirmez).
+    SetFlag { name: String },
     /// Yığındaki son elemanı sınırlar.
     Clamp { min: Option<f64>, max: Option<f64> },
     /// Yığındaki son elemanı (ihtimal) çeker, RNG çalıştırır,
@@ -142,6 +175,21 @@ impl CombatExpression {
                 right.compile_into(bytecode);
                 bytecode.push(Opcode::Multiply);
             }
+            CombatExpression::Divide { left, right } => {
+                left.compile_into(bytecode);
+                right.compile_into(bytecode);
+                bytecode.push(Opcode::Divide);
+            }
+            CombatExpression::RandRange { min, max } => {
+                bytecode.push(Opcode::RandRange {
+                    min: *min,
+                    max: *max,
+                });
+            }
+            CombatExpression::Flag { name, expr } => {
+                expr.compile_into(bytecode);
+                bytecode.push(Opcode::SetFlag { name: name.clone() });
+            }
             CombatExpression::Clamp { min, max, expr } => {
                 expr.compile_into(bytecode);
                 bytecode.push(Opcode::Clamp {
@@ -204,14 +252,41 @@ impl CombatEngine {
     where
         R: FnMut() -> f64,
     {
-        Self::eval_expr(
+        Ok(Self::evaluate_ex(
+            formula,
+            attacker_resolver,
+            attacker_ctx,
+            defender_resolver,
+            defender_ctx,
+            rng,
+        )?
+        .value)
+    }
+
+    /// Savaş formülünü hesaplar ve değerle birlikte set edilen bayrakları
+    /// (ör. "hit", "crit") döndürür. `Flag` düğümleri bu bayrakları doldurur.
+    pub fn evaluate_ex<R>(
+        formula: &CombatFormula,
+        attacker_resolver: &mut StatResolver,
+        attacker_ctx: &StatContext,
+        defender_resolver: &mut StatResolver,
+        defender_ctx: &StatContext,
+        rng: &mut R,
+    ) -> Result<CombatOutcome, StatError>
+    where
+        R: FnMut() -> f64,
+    {
+        let mut flags = CombatFlags::new();
+        let value = Self::eval_expr(
             &formula.expression,
             attacker_resolver,
             attacker_ctx,
             defender_resolver,
             defender_ctx,
             rng,
-        )
+            &mut flags,
+        )?;
+        Ok(CombatOutcome { value, flags })
     }
 
     /// Derlenmiş (bytecode) savaş formülünü sanal makine (VM) üzerinde hesaplar.
@@ -233,6 +308,7 @@ impl CombatEngine {
             defender_resolver,
             defender_ctx,
             rng,
+            &mut CombatFlags::new(),
         )
     }
 
@@ -243,6 +319,7 @@ impl CombatEngine {
         defender_resolver: &mut StatResolver,
         defender_ctx: &StatContext,
         rng: &mut R,
+        flags: &mut CombatFlags,
     ) -> Result<f64, StatError>
     where
         R: FnMut() -> f64,
@@ -295,6 +372,25 @@ impl CombatEngine {
                     stack.push(a * b);
                     pc += 1;
                 }
+                Opcode::Divide => {
+                    let b = stack.pop().ok_or_else(|| {
+                        StatError::VmError("Stack underflow during Divide".to_string())
+                    })?;
+                    let a = stack.pop().ok_or_else(|| {
+                        StatError::VmError("Stack underflow during Divide".to_string())
+                    })?;
+                    stack.push(a / b);
+                    pc += 1;
+                }
+                Opcode::RandRange { min, max } => {
+                    let roll = rng();
+                    stack.push(*min + roll * (*max - *min));
+                    pc += 1;
+                }
+                Opcode::SetFlag { name } => {
+                    flags.insert(name.clone(), true);
+                    pc += 1;
+                }
                 Opcode::Clamp { min, max } => {
                     let mut val = stack.pop().ok_or_else(|| {
                         StatError::VmError("Stack underflow during Clamp".to_string())
@@ -330,6 +426,7 @@ impl CombatEngine {
             .ok_or_else(|| StatError::VmError("Empty stack at VM termination".to_string()))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn eval_expr<R>(
         expr: &CombatExpression,
         attacker_resolver: &mut StatResolver,
@@ -337,6 +434,7 @@ impl CombatEngine {
         defender_resolver: &mut StatResolver,
         defender_ctx: &StatContext,
         rng: &mut R,
+        flags: &mut CombatFlags,
     ) -> Result<f64, StatError>
     where
         R: FnMut() -> f64,
@@ -359,6 +457,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 let r = Self::eval_expr(
                     right,
@@ -367,6 +466,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 Ok(l + r)
             }
@@ -378,6 +478,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 let r = Self::eval_expr(
                     right,
@@ -386,6 +487,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 Ok(l - r)
             }
@@ -397,6 +499,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 let r = Self::eval_expr(
                     right,
@@ -405,8 +508,46 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 Ok(l * r)
+            }
+            CombatExpression::Divide { left, right } => {
+                let l = Self::eval_expr(
+                    left,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                    flags,
+                )?;
+                let r = Self::eval_expr(
+                    right,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                    flags,
+                )?;
+                Ok(l / r)
+            }
+            CombatExpression::RandRange { min, max } => {
+                let roll = rng();
+                Ok(*min + roll * (*max - *min))
+            }
+            CombatExpression::Flag { name, expr } => {
+                flags.insert(name.clone(), true);
+                Self::eval_expr(
+                    expr,
+                    attacker_resolver,
+                    attacker_ctx,
+                    defender_resolver,
+                    defender_ctx,
+                    rng,
+                    flags,
+                )
             }
             CombatExpression::Clamp { min, max, expr } => {
                 let mut val = Self::eval_expr(
@@ -416,6 +557,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 if let Some(m) = min {
                     val = val.max(*m);
@@ -437,6 +579,7 @@ impl CombatEngine {
                     defender_resolver,
                     defender_ctx,
                     rng,
+                    flags,
                 )?;
                 let roll = rng();
                 if roll <= chance {
@@ -447,6 +590,7 @@ impl CombatEngine {
                         defender_resolver,
                         defender_ctx,
                         rng,
+                        flags,
                     )
                 } else {
                     Self::eval_expr(
@@ -456,6 +600,7 @@ impl CombatEngine {
                         defender_resolver,
                         defender_ctx,
                         rng,
+                        flags,
                     )
                 }
             }
@@ -467,6 +612,60 @@ impl CombatEngine {
 mod tests {
     use super::*;
     use crate::source::ConstantSource;
+
+    // Exercises the Divide, RandRange, and Flag nodes plus flag reporting via
+    // evaluate_ex, using a deterministic RNG sequence.
+    #[test]
+    fn test_divide_randrange_flag_and_flags_reported() {
+        let mut attacker = StatResolver::new();
+        attacker.register_source(StatId::from("A"), Box::new(ConstantSource(10.0)));
+        attacker.register_source(StatId::from("B"), Box::new(ConstantSource(4.0)));
+        let mut defender = StatResolver::new();
+        let ctx = StatContext::new();
+
+        // Formula: Chance(0.5) { success: Flag("hit", A / B * RandRange(0.9,1.1)),
+        //                        fail: 0 }.  A/B = 2.5.
+        let json = r#"{
+            "name": "t",
+            "expression": {
+                "type": "Chance",
+                "chance_expr": { "type": "Constant", "value": 0.5 },
+                "success_expr": {
+                    "type": "Flag",
+                    "name": "hit",
+                    "expr": {
+                        "type": "Multiply",
+                        "left": {
+                            "type": "Divide",
+                            "left": { "type": "Stat", "target": "attacker", "stat": "A" },
+                            "right": { "type": "Stat", "target": "attacker", "stat": "B" }
+                        },
+                        "right": { "type": "RandRange", "min": 0.9, "max": 1.1 }
+                    }
+                },
+                "fail_expr": { "type": "Constant", "value": 0.0 }
+            }
+        }"#;
+        let formula: CombatFormula = serde_json::from_str(json).unwrap();
+
+        // Hit path: roll 0.0 (<=0.5) for the chance, then 0.5 for RandRange -> 1.0.
+        let mut rolls = vec![0.0, 0.5].into_iter();
+        let mut rng = || rolls.next().unwrap();
+        let out =
+            CombatEngine::evaluate_ex(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng)
+                .unwrap();
+        assert!((out.value - 2.5).abs() < 1e-9); // 2.5 * 1.0
+        assert_eq!(out.flags.get("hit").copied(), Some(true));
+
+        // Miss path: roll 1.0 (>0.5) -> fail branch, value 0, no hit flag.
+        let mut rolls = vec![1.0].into_iter();
+        let mut rng = || rolls.next().unwrap();
+        let out =
+            CombatEngine::evaluate_ex(&formula, &mut attacker, &ctx, &mut defender, &ctx, &mut rng)
+                .unwrap();
+        assert_eq!(out.value, 0.0);
+        assert_eq!(out.flags.get("hit").copied(), None);
+    }
 
     #[test]
     fn test_combat_engine_basic_damage() {
